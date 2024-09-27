@@ -8,6 +8,8 @@ cmake_minimum_required (VERSION 3.12)
 
 project (cuda_hgemm LANGUAGES C CXX CUDA)
 
+set(CMAKE_CUDA_ARCHITECTURES 89 CACHE STRING "CUDA architecture")
+
 set (CMAKE_VERBOSE_MAKEFILE ${HGEMM_VERBOSE_MAKEFILE})
 
 set (CMAKE_C_FLAGS "-std=c11")
@@ -36,7 +38,7 @@ unset (CUDA_USE_STATIC_CUDA_RUNTIME CACHE)
 option (CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 
 set (CUDA_VERBOSE_BUILD ${HGEMM_VERBOSE_MAKEFILE})
-set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -Xptxas=-v -Xcompiler -fopenmp")
+set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -Xptxas=-v -v -Xcompiler -fopenmp")
 if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -arch=sm_${CMAKE_CUDA_ARCHITECTURES} -g -lineinfo -O0")
 else ()

@@ -1,0 +1,7 @@
+CompileFlags:
+  Add:
+    - "--cuda-path=/usr/local/cuda"
+    - "--cuda-gpu-arch=sm_89"
+    - "-I/usr/local/cuda/include"
+    - "-I/home/ajit/Repositories/sptc-smat/src/cuda_hgemm/src"
+    - "-I/home/ajit/Repositories/sptc-smat/src/cuda_hgemm/src/common"
