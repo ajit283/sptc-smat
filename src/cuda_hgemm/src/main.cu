@@ -31,7 +31,7 @@ DEFINE_bool(enable_check, false, "check the GPU result against the cublas result
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
 DEFINE_uint32(n_mult, 1, "n_mult * MMA_N = N");
-DEFINE_string(filename, "/scratch/czox/sparse_matrices/reordering_tests/cop20k_A_reordered_transposed_reordered.mtx", "input .mtx file");
+DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx", "input .mtx file");
 
 
 int main(int argc, char *argv[]) {

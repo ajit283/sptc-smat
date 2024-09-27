@@ -25,6 +25,11 @@ with open(filename) as csvfile:
             # matrix_url = "http://sparse-files.engr.tamu.edu/MM/" + cur_row[1] + "/" + cur_row[2] + ".tar.gz"
             # os.system("axel -n 4 " + matrix_url)
             os.system("wget " + matrix_url)
-            os.system(f"mv ${matrix_name} ${download_path}")
-            os.system("tar -zxvf " + f"${download_path}/${matrix_name}" + ".tar.gz " + "-C " + matrix_group + "/")
-            os.system("rm -rf " + f"${download_path}/${matrix_name}" + ".tar.gz")
+            print(download_path)
+            path = download_path + "/" + matrix_name + ".tar.gz"
+            print(path)
+            print(matrix_name)
+            
+            # os.system(f"mv {matrix_name}.tar.gz {path}")
+            # os.system("tar -zxvf " + f"{download_path}/{matrix_name}" + ".tar.gz " + "-C " + matrix_group + "/")
+            # os.system("rm -rf " + f"{download_path}/{matrix_name}" + ".tar.gz")
