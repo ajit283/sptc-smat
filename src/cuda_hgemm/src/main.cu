@@ -17,6 +17,7 @@ HGEMM_FUNC(cublasTensorOp);
 
 HGEMM_FUNC_SPARSE(mmaNaiveKernel);
 HGEMM_FUNC_SPARSE(mmaTKernel);
+HGEMM_FUNC_SPARSE(mmaSTKernel);
 
 HGEMM_FUNC_SPARSE2(mmaBKernel);
 HGEMM_FUNC_SPARSE2(mmaBTKernel);
@@ -116,6 +117,7 @@ int main(int argc, char *argv[]) {
 
   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
 
   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");

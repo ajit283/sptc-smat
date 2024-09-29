@@ -1,3 +1,5 @@
+
+
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <stdio.h>
@@ -69,8 +71,8 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
         __cvta_generic_to_shared(&B_smem[lane_id % 8][((lane_id / 8) % 2) * 8]);
     LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
 
-    HMMA16816_SPARSE(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1],
-                     RC[0], RC[1]);
+    HMMA16816_SPARSE(RC[0], RC[1], RA[0], RA[1], RB[0], RB[1], RC[0], RC[1], 1,
+                     0x1);
 
     __syncthreads();
   }
