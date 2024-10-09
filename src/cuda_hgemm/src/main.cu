@@ -33,7 +33,7 @@ DEFINE_uint32(warmup_iterations, 1,
 DEFINE_uint32(profiling_iterations, 10,
               "profiling iteration numbers and average the result");
 DEFINE_uint32(sleep_duration, 100, "sleep_milliseconds between profiling");
-DEFINE_bool(enable_check, false,
+DEFINE_bool(enable_check, true,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
