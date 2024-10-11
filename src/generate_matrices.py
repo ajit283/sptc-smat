@@ -21,6 +21,10 @@ def generate_band_mtx_matrix(N: int, b: int, foldername: str = None, filename: s
     # Save the .mtx file
     if foldername is None:
         foldername = 'matrices/band_matrices_4_times'
+        
+    # check if folder exists, otherwise create it
+    if not os.path.exists(foldername):
+        os.makedirs(foldername)
 
     if filename is None:
         filename = f'band_mtx_{N}_{b}.mtx'
@@ -35,10 +39,14 @@ import sys
 def main():
     n = len(sys.argv)
     if n < 5:
-        N_min = 16384
-        N_max = 16384
-        b_min = 64
-        b_max = 16385
+        N_min = 1024
+        N_max = 1024
+        b_min = 512
+        b_max = 512
+        # N_min = 16384
+        # N_max = 16384
+        # b_min = 64
+        # b_max = 16385
     else:
         N_min = sys.argv[1]
         N_max = sys.argv[2]

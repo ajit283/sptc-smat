@@ -33,13 +33,16 @@ DEFINE_uint32(warmup_iterations, 1,
 DEFINE_uint32(profiling_iterations, 10,
               "profiling iteration numbers and average the result");
 DEFINE_uint32(sleep_duration, 100, "sleep_milliseconds between profiling");
-DEFINE_bool(enable_check, true,
+DEFINE_bool(enable_check, false,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
 DEFINE_uint32(n_mult, 1, "n_mult * MMA_N = N");
-DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
+DEFINE_string(filename,
+              "./src/matrices/band_matrices_4_times/band_mtx_256_128.mtx",
               "input .mtx file");
+// DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
+//               "input .mtx file");
 
 int main(int argc, char *argv[]) {
   GFLAGS_NAMESPACE::ParseCommandLineFlags(&argc, &argv, true);
@@ -112,8 +115,8 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data());
-  // tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+  tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
 
   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");

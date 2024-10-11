@@ -115,7 +115,6 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
       char *cur_meta = (Meta_smem[lane_id / 2]) + (lane_id % 2);
 
-#pragma unroll
       for (int i = 0; i < 4; ++i) {
         half2 pair = src[i];
         half non_zero = (pair.x != (half)0.0f) ? pair.x : pair.y;
