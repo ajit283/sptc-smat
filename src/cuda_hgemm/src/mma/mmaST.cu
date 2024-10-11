@@ -1,5 +1,6 @@
 
 
+// #include <__clang_cuda_builtin_vars.h>
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cstdio>
@@ -35,16 +36,6 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
   size_t blockIndex = blockRow * colRegions + blockCol;
 
-  int sparsityInfo = blockInfo[blockIndex];
-
-  if (sparsityInfo == 0) {
-    // printf("zero block");
-  } else if (sparsityInfo == 1) {
-    // printf("sparse block");
-  } else if (sparsityInfo) {
-    // printf("dense block");
-  }
-
   if (warp_row >= M || warp_col >= N) {
     return;
   }
@@ -58,14 +49,27 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 #pragma unroll
   for (size_t i = 0; i < K_tiles; ++i) {
     // skip empty block
+    int sparsityInfo = blockInfo[blockIndex];
+    // if (sparsityInfo == 0) {
+    //   printf("zero block");
+    // } else if (sparsityInfo == 1) {
+    //   printf("sparse block");
+    // } else if (sparsityInfo == 2) {
+    //   printf("dense block");
+    // } else {
+    //   printf("unknown block");
+    // }
     size_t blockIndex = blockRow * colRegions + i;
     if (blockInfo[blockIndex] == 0) {
       continue;
     }
     size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+
     // _shared__ half C_smem[MMA_M][MMA_N];
-    if (sparsityInfo == 2) {
-      // if (true) {
+    // if (sparsityInfo == 2) {
+    if (sparsityInfo == 2
+        // || sparsityInfo == 1
+    ) {
 
       __shared__ half A_smem[MMA_M][MMA_K];
       __shared__ half B_smem[MMA_N][MMA_K];
@@ -75,6 +79,8 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
           *((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
                                   (lane_id / 2) * MMA_K]) +
             lane_id % 2);
+
+      // print matrix
 
       if (lane_id < MMA_N * 2) {
         *((int4 *)(&B_smem[lane_id / 2][0]) + lane_id % 2) =
@@ -101,32 +107,83 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
     else if (sparsityInfo == 1) {
 
+      //------------------------------------------------------------------------------
+      __shared__ half A_smem_test[MMA_M][MMA_K];
+
+      *((int4 *)(&A_smem_test[lane_id / 2][0]) + lane_id % 2) =
+          *((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
+                                  (lane_id / 2) * MMA_K]) +
+            lane_id % 2);
+      __syncthreads();
+      if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {
+        printf("begin print matrix \n");
+        for (int i = 0; i < MMA_M; i++) {
+          for (int j = 0; j < MMA_K; j++) {
+            printf("%f ", __half2float(A_smem_test[i][j]));
+          }
+          printf("\n");
+        }
+
+        printf("\n\n\n");
+        printf("end print matrix \n");
+      }
+      __syncthreads();
+
+      // -----------------------------------------------------------------------------
+
       __shared__ half A_smem[MMA_M][MMA_K / 2];
       __shared__ half B_smem[MMA_N][MMA_K];
       // __shared__ half C_smem[MMA_M][MMA_N];
       __shared__ char Meta_smem[MMA_M][MMA_K / 8];
 
-      half2 *src =
-          ((half2 *)((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
-                                           (lane_id / 2) * MMA_K]) +
-                     lane_id % 2));
+      half *src = // length 8
+          ((half *)((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
+                                          (lane_id / 2) * MMA_K]) +
+                    lane_id % 2));
 
       half src_sparse[4];
 
       char *cur_meta = (Meta_smem[lane_id / 2]) + (lane_id % 2);
 
-      for (int i = 0; i < 4; ++i) {
-        half2 pair = src[i];
-        half non_zero = (pair.x != (half)0.0f) ? pair.x : pair.y;
-        src_sparse[i] = non_zero;
+      // for (int i = 0; i < 2; ++i) {
+      //    pair = *(src + i * 4);
+      //   half non_zero = (pair.x != (half)0.0f) ? pair.x : pair.y;
+      //   src_sparse[i] = non_zero;
 
-        // Set the metadata bits
-        char position = (pair.x != (half)0.0f) ? (i * 2) : (i * 2 + 1);
-        *cur_meta |= (position & 0x3) << (i * 2);
+      //   // Set the metadata bits
+      //   char position = (pair.x != (half)0.0f) ? (i * 2) : (i * 2 + 1);
+      //   *cur_meta |= (position & 0x3) << (i * 2);
+      // }
+      for (int j = 0; j < 2; ++j) {
+        int cur_src_sparse = 0;
+        src_sparse[0 + (2 * j)] = 0;
+        src_sparse[1 + (2 * j)] = 0;
+        for (int i = 0; i < 4; ++i) {
+          if (src[i + (4 * j)] != (half)0.0f) {
+            src_sparse[cur_src_sparse + (2 * j)] = src[i + (4 * j)];
+            *cur_meta |= i << (2 * cur_src_sparse + (4 * j));
+            cur_src_sparse++;
+          }
+        }
       }
 
       *((int2 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
           *((int2 *)src_sparse);
+
+      __syncthreads();
+      if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {
+        printf("begin print matrix sparse \n");
+        for (int i = 0; i < MMA_M; i++) {
+          for (int j = 0; j < MMA_K / 2; j++) {
+            printf("%f ", __half2float(A_smem[i][j]));
+          }
+          printf("\n");
+        }
+
+        printf("\n\n\n");
+        printf("end print matrix sparse \n");
+      }
+      __syncthreads();
 
       __syncthreads();
 
@@ -136,6 +193,19 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
       metadata[1] = *(cur_meta + 1);
       metadata[2] = *(cur_meta + (2 * 8));
       metadata[2] = *(cur_meta + (2 * 8) + 1);
+
+      // print metadata[0] as bits
+      if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {
+        printf("begin print metadata as bits \n");
+        for (int i = 0; i < 4; i++) {
+          for (int bit = 7; bit >= 0; bit--) {
+            printf("%d", (metadata[i] >> bit) & 1);
+          }
+          printf(" "); // Space between each char
+        }
+        printf("\n");
+        printf("end print metadata as bits \n");
+      }
 
       uint32_t RA[2];
       uint32_t RB[2];

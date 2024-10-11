@@ -252,7 +252,7 @@ def pad_matrix(matrix, p=16, b=8):
 
 def coo_matrix2mtx(sparse_matrix, mtx_path):
     """
-    Convert a sparse matrix in COO format as as scipy.sparse object to .mtx format.
+    Convert a sparse matrix in COO format as scipy.sparse object to .mtx format.
     Mtx is just a standard EL (edgelist) format with additional header metadata.
     All we need to do is add the header and save the rest as a .mtx file.
     """
