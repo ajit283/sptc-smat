@@ -52,17 +52,6 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
 #pragma unroll
   for (size_t i = 0; i < K_tiles; ++i) {
-    // skip empty block
-
-    // if (sparsityInfo == 0) {
-    //   printf("zero block");
-    // } else if (sparsityInfo == 1) {
-    //   printf("sparse block");
-    // } else if (sparsityInfo == 2) {
-    //   printf("dense block");
-    // } else {
-    //   printf("unknown block");
-    // }
     size_t blockIndex = blockRow * colRegions + i;
     int sparsityInfo = blockInfo[blockIndex];
     if (blockInfo[blockIndex] == 0) {
@@ -110,65 +99,15 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
           threadIdx.x == PRINT_THREAD_ID) {
       }
 
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID, printf("begin print matrix part \n");
-          // print RA
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RA) + i)));
-          } printf("\n");
-          // print RB
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RB) + i)));
-          } printf("\n");
-          // print RC
-          for (int i = 0; i < 4;
-               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
-
       HMMA16816(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1], RC[0],
                 RC[1]);
 
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID, printf("begin print matrix part after \n");
-          // print RA
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RA) + i)));
-          } printf("\n");
-          // print RB
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RB) + i)));
-          } printf("\n");
-          // print RC
-          for (int i = 0; i < 4;
-               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
     }
 
     else if (sparsityInfo == 1) {
 
-      //------------------------------------------------------------------------------
-      __shared__ half A_smem_test[MMA_M][MMA_K];
-
-      *((int4 *)(&A_smem_test[lane_id / 2][0]) + lane_id % 2) =
-          *((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
-                                  (lane_id / 2) * MMA_K]) +
-            lane_id % 2);
-
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID, printf("begin print matrix \n");
-          for (int i = 0; i < MMA_M; i++) {
-            for (int j = 0; j < MMA_K; j++) {
-              printf("%f ", __half2float(A_smem_test[i][j]));
-            }
-            printf("\n");
-          }
-
-          printf("\n\n\n");
-          printf("end print matrix \n");)
-
-      // -----------------------------------------------------------------------------
-
       __shared__ half A_smem[MMA_M][MMA_K / 2];
       __shared__ half B_smem[MMA_N][MMA_K];
-      // __shared__ half C_smem[MMA_M][MMA_N];
       __shared__ char Meta_smem[MMA_M][MMA_K / 8];
 
       half *src = // length 8
@@ -182,6 +121,7 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
       *cur_meta = 0;
 
+#pragma unroll
       for (int j = 0; j < 2; ++j) {
         int cur_src_sparse = 0;
         src_sparse[0 + (2 * j)] = 0;
@@ -195,10 +135,10 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
           }
         }
         // all zeroes
-        if (cur_src_sparse == 0) {
-          *cur_meta |= 0b0100 << (4 * j);
-          // *cur_meta |= 0b0100 << (6 - 4 * j);
-        }
+        // if (cur_src_sparse == 0) {
+        //   *cur_meta |= 0b0100 << (4 * j);
+        //   // *cur_meta |= 0b0100 << (6 - 4 * j);
+        // }
       }
 
       *((int2 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
@@ -209,18 +149,6 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
             *((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
               lane_id % 2);
       }
-
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID, printf("begin print matrix sparse \n");
-          for (int i = 0; i < MMA_M; i++) {
-            for (int j = 0; j < MMA_K / 2; j++) {
-              printf("%f ", __half2float(A_smem[i][j]));
-            }
-            printf("\n");
-          }
-
-          printf("\n\n\n");
-          printf("end print matrix sparse \n");)
 
       char metadata[4];
 
@@ -235,18 +163,6 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
       // print metadata[0] as bits
 
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID, // print lane id
-          printf("lane id: %d\n", lane_id);
-          printf("begin print metadata as bits \n");
-          for (int i = 0; i < 4; i++) {
-            for (int bit = 7; bit >= 0; bit--) {
-              printf("%d", (metadata[i] >> bit) & 1);
-            }
-            printf(" "); // Space between each char
-          } printf("\n");
-          printf("end print metadata as bits \n");)
-
       uint32_t RA[2];
       uint32_t RB[2];
 
@@ -258,44 +174,12 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
           &B_smem[lane_id % 8][((lane_id / 8) % 2) * 8]);
       LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
 
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID, printf("begin print matrix part \n");
-          // print RA
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RA) + i)));
-          } printf("\n");
-          // print RB
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RB) + i)));
-          } printf("\n");
-          // print RC
-          for (int i = 0; i < 4;
-               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
-
-      // equivalent for metadata
-
       uint32_t meta_value;
       memcpy(&meta_value, metadata, sizeof(uint32_t));
 
       HMMA16816_SPARSE(RC[0], RC[1], RA[0], RA[1], RB[0], RB[1], RC[0], RC[1],
                        meta_value, 0x0);
-
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID, printf("begin print matrix part after \n");
-          // print RA
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RA) + i)));
-          } printf("\n");
-          // print RB
-          for (int i = 0; i < 4; i++) {
-            printf("%f ", __half2float(*(((half *)RB) + i)));
-          } printf("\n");
-          // print RC
-          for (int i = 0; i < 4;
-               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
     }
-
-    // __syncthreads();
   }
 
   *((uint32_t *)(&C_smem[lane_id / 4][0]) + lane_id % 4) = RC[0];
