@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "logging_cuda.h"
 #include "ptx.h"
 
 #define MMA_M 16
@@ -22,7 +23,7 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
                                   size_t N, size_t K, size_t nonzeroBlocks,
                                   int *blockInfo,
                                   int *relativeBlockIndexMapping) {
-
+  int PRINT_THREAD_ID = 11;
   // mmaSTKernel
   const size_t K_tiles = div_ceil(K, MMA_K);
 
@@ -47,9 +48,7 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
   uint32_t RC[2] = {0, 0};
 
   // print K_tiles
-  if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {
-    printf("K_tiles: %d\n", K_tiles);
-  }
+  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
 
 #pragma unroll
   for (size_t i = 0; i < K_tiles; ++i) {
@@ -73,7 +72,8 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
     // _shared__ half C_smem[MMA_M][MMA_N];
     // if (sparsityInfo == 2) {
-    int PRINT_THREAD_ID = 11;
+
+    // if (true) {
     if (sparsityInfo == 2) {
 
       __shared__ half A_smem[MMA_M][MMA_K];
@@ -108,44 +108,38 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
 
       if (blockIdx.x == 0 && blockIdx.y == 0 &&
           threadIdx.x == PRINT_THREAD_ID) {
-        printf("begin print matrix part \n");
-        // print RA
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RA) + i)));
-        }
-        printf("\n");
-        // print RB
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RB) + i)));
-        }
-        printf("\n");
-        // print RC
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RC) + i)));
-        }
       }
+
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID, printf("begin print matrix part \n");
+          // print RA
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RA) + i)));
+          } printf("\n");
+          // print RB
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RB) + i)));
+          } printf("\n");
+          // print RC
+          for (int i = 0; i < 4;
+               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
 
       HMMA16816(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1], RC[0],
                 RC[1]);
 
-      if (blockIdx.x == 0 && blockIdx.y == 0 &&
-          threadIdx.x == PRINT_THREAD_ID) {
-        printf("begin print matrix part after \n");
-        // print RA
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RA) + i)));
-        }
-        printf("\n");
-        // print RB
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RB) + i)));
-        }
-        printf("\n");
-        // print RC
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RC) + i)));
-        }
-      }
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID, printf("begin print matrix part after \n");
+          // print RA
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RA) + i)));
+          } printf("\n");
+          // print RB
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RB) + i)));
+          } printf("\n");
+          // print RC
+          for (int i = 0; i < 4;
+               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
     }
 
     else if (sparsityInfo == 1) {
@@ -158,21 +152,17 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
                                   (lane_id / 2) * MMA_K]) +
             lane_id % 2);
 
-      __syncthreads();
-      if (blockIdx.x == 0 && blockIdx.y == 0 &&
-          threadIdx.x == PRINT_THREAD_ID) {
-        printf("begin print matrix \n");
-        for (int i = 0; i < MMA_M; i++) {
-          for (int j = 0; j < MMA_K; j++) {
-            printf("%f ", __half2float(A_smem_test[i][j]));
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID, printf("begin print matrix \n");
+          for (int i = 0; i < MMA_M; i++) {
+            for (int j = 0; j < MMA_K; j++) {
+              printf("%f ", __half2float(A_smem_test[i][j]));
+            }
+            printf("\n");
           }
-          printf("\n");
-        }
 
-        printf("\n\n\n");
-        printf("end print matrix \n");
-      }
-      __syncthreads();
+          printf("\n\n\n");
+          printf("end print matrix \n");)
 
       // -----------------------------------------------------------------------------
 
@@ -220,23 +210,17 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
               lane_id % 2);
       }
 
-      __syncthreads();
-      if (blockIdx.x == 0 && blockIdx.y == 0 &&
-          threadIdx.x == PRINT_THREAD_ID) {
-        printf("begin print matrix sparse \n");
-        for (int i = 0; i < MMA_M; i++) {
-          for (int j = 0; j < MMA_K / 2; j++) {
-            printf("%f ", __half2float(A_smem[i][j]));
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID, printf("begin print matrix sparse \n");
+          for (int i = 0; i < MMA_M; i++) {
+            for (int j = 0; j < MMA_K / 2; j++) {
+              printf("%f ", __half2float(A_smem[i][j]));
+            }
+            printf("\n");
           }
-          printf("\n");
-        }
 
-        printf("\n\n\n");
-        printf("end print matrix sparse \n");
-      }
-      __syncthreads();
-
-      __syncthreads();
+          printf("\n\n\n");
+          printf("end print matrix sparse \n");)
 
       char metadata[4];
 
@@ -250,21 +234,18 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
       // metadata[2] = *(cur_meta + (2 * 8) + 1);
 
       // print metadata[0] as bits
-      if (blockIdx.x == 0 && blockIdx.y == 0 &&
-          threadIdx.x == PRINT_THREAD_ID) {
 
-        // print lane id
-        printf("lane id: %d\n", lane_id);
-        printf("begin print metadata as bits \n");
-        for (int i = 0; i < 4; i++) {
-          for (int bit = 7; bit >= 0; bit--) {
-            printf("%d", (metadata[i] >> bit) & 1);
-          }
-          printf(" "); // Space between each char
-        }
-        printf("\n");
-        printf("end print metadata as bits \n");
-      }
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID, // print lane id
+          printf("lane id: %d\n", lane_id);
+          printf("begin print metadata as bits \n");
+          for (int i = 0; i < 4; i++) {
+            for (int bit = 7; bit >= 0; bit--) {
+              printf("%d", (metadata[i] >> bit) & 1);
+            }
+            printf(" "); // Space between each char
+          } printf("\n");
+          printf("end print metadata as bits \n");)
 
       uint32_t RA[2];
       uint32_t RB[2];
@@ -277,24 +258,19 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
           &B_smem[lane_id % 8][((lane_id / 8) % 2) * 8]);
       LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
 
-      if (blockIdx.x == 0 && blockIdx.y == 0 &&
-          threadIdx.x == PRINT_THREAD_ID) {
-        printf("begin print matrix part \n");
-        // print RA
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RA) + i)));
-        }
-        printf("\n");
-        // print RB
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RB) + i)));
-        }
-        printf("\n");
-        // print RC
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RC) + i)));
-        }
-      }
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID, printf("begin print matrix part \n");
+          // print RA
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RA) + i)));
+          } printf("\n");
+          // print RB
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RB) + i)));
+          } printf("\n");
+          // print RC
+          for (int i = 0; i < 4;
+               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
 
       // equivalent for metadata
 
@@ -304,29 +280,22 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, half *B, half *C, size_t M,
       HMMA16816_SPARSE(RC[0], RC[1], RA[0], RA[1], RB[0], RB[1], RC[0], RC[1],
                        meta_value, 0x0);
 
-      __syncthreads();
-
-      if (blockIdx.x == 0 && blockIdx.y == 0 &&
-          threadIdx.x == PRINT_THREAD_ID) {
-        printf("begin print matrix part after \n");
-        // print RA
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RA) + i)));
-        }
-        printf("\n");
-        // print RB
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RB) + i)));
-        }
-        printf("\n");
-        // print RC
-        for (int i = 0; i < 4; i++) {
-          printf("%f ", __half2float(*(((half *)RC) + i)));
-        }
-      }
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID, printf("begin print matrix part after \n");
+          // print RA
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RA) + i)));
+          } printf("\n");
+          // print RB
+          for (int i = 0; i < 4; i++) {
+            printf("%f ", __half2float(*(((half *)RB) + i)));
+          } printf("\n");
+          // print RC
+          for (int i = 0; i < 4;
+               i++) { printf("%f ", __half2float(*(((half *)RC) + i))); })
     }
 
-    __syncthreads();
+    // __syncthreads();
   }
 
   *((uint32_t *)(&C_smem[lane_id / 4][0]) + lane_id % 4) = RC[0];
