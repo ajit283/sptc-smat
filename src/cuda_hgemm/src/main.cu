@@ -8,6 +8,10 @@
   void name(half *bcsrValuesA, half *B, half *C, size_t M, size_t N, size_t K, \
             size_t nonzeroBlocks, int *blockInfo,                              \
             int *relativeBlockIndexMapping)
+#define HGEMM_FUNC_SPARSE24(name)                                              \
+  void name(half *bcsrValuesA, char *metadata, half *sparseMatrixA, half *B,   \
+            half *C, size_t M, size_t N, size_t K, size_t nonzeroBlocks,       \
+            int *blockInfo, int *relativeBlockIndexMapping)
 #define HGEMM_FUNC_SPARSE2(name)                                               \
   void name(half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA, half *B,    \
             half *C, size_t M, size_t N, size_t K, size_t nonzeroBlocks,       \
@@ -17,11 +21,16 @@ HGEMM_FUNC(cublasTensorOp);
 
 HGEMM_FUNC_SPARSE(mmaNaiveKernel);
 HGEMM_FUNC_SPARSE(mmaTKernel);
-HGEMM_FUNC_SPARSE(mmaSTKernel);
+HGEMM_FUNC_SPARSE24(mmaSTKernel);
 
 HGEMM_FUNC_SPARSE2(mmaBKernel);
 HGEMM_FUNC_SPARSE2(mmaBTKernel);
 HGEMM_FUNC_SPARSE2(mmaCBTKernel);
+
+void preprocessing_mmaSTKernel(half *bcsrValuesA, half *metadata,
+                               half *sparseMatrixA, size_t M, size_t N,
+                               size_t K, size_t nonzeroBlocks, int *blockInfo,
+                               int *relativeBlockIndexMapping);
 
 DEFINE_uint32(M, 512, "M");
 DEFINE_uint32(N, 2048, "N");
@@ -42,13 +51,13 @@ DEFINE_uint32(n_mult, 1, "n_mult * MMA_N = N");
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_1024.mtx",
 //               "input .mtx file");
-DEFINE_string(filename,
-              "./src/matrices/band_matrices_2_4_sparse/"
-              "band_mtx_2_4_sparse_16384_32.mtx",
-              "input .mtx file");
 // DEFINE_string(filename,
-//               "./src/matrices/band_matrices_4_times/band_mtx_1024_512.mtx",
+//               "./src/matrices/band_matrices_2_4_sparse/"
+//               "band_mtx_2_4_sparse_16384_32.mtx",
 //               "input .mtx file");
+DEFINE_string(filename,
+              "./src/matrices/band_matrices_4_times/band_mtx_1024_512.mtx",
+              "input .mtx file");
 // DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
 //               "input .mtx file");
 // DEFINE_string(filename, "./src/matrices/suitesparse/shipsec1/shipsec1.mtx",
@@ -127,12 +136,14 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
 
   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  //   tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
+                          "Mma-ST-Kernel");
 
   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");

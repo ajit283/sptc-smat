@@ -20,11 +20,12 @@
 // 2 - dense block
 
 __global__ void
-preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
+preprocessing_mmaSTKernelSparse(half *bcsrValuesA, half *metadata,
                                 half *sparseMatrixA, size_t M, size_t N,
                                 size_t K, size_t nonzeroBlocks, int *blockInfo,
                                 int *relativeBlockIndexMapping) {
   int PRINT_THREAD_ID = 11;
+  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
   // mmaSTKernel
   const size_t K_tiles = div_ceil(K, MMA_K);
 
@@ -95,12 +96,12 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
           }
         }
       }
-      *(metadata + (blockRow * colRegions + i * MMA_M * 2 + lane_id)) =
+      *((char *)metadata + (blockRow * colRegions + i * MMA_M * 2 + lane_id)) =
           *cur_meta;
 
-      *(int2 *)(sparseMatrixA +
-                (blockRow * colRegions + i * MMA_M * (MMA_K / 2) + lane_id)) =
-          *(int2 *)src_sparse;
+      *((int2 *)(sparseMatrixA +
+                 (blockRow * colRegions + i * MMA_M * (MMA_K / 2))) +
+        lane_id) = *(int2 *)src_sparse;
 
       *((int2 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
           *((int2 *)src_sparse);
@@ -201,8 +202,9 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
       __shared__ char Meta_smem[MMA_M][MMA_K / 8];
 
       *((int2 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
-          *(int2 *)(sparseMatrixA + (blockRow * colRegions +
-                                     i * MMA_M * (MMA_K / 2) + lane_id));
+          *((int2 *)(sparseMatrixA +
+                     (blockRow * colRegions + i * MMA_M * (MMA_K / 2))) +
+            lane_id);
 
       *((Meta_smem[lane_id / 2]) + (lane_id % 2)) =
           *(metadata + (blockRow * colRegions + i * MMA_M * 2 + lane_id));
@@ -268,12 +270,14 @@ void mmaSTKernel(half *bcsrValuesA, char *metadata, half *sparseMatrixA,
                                      relativeBlockIndexMapping);
 }
 
-void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
+void preprocessing_mmaSTKernel(half *bcsrValuesA, half *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
                                size_t K, size_t nonzeroBlocks, int *blockInfo,
                                int *relativeBlockIndexMapping) {
   dim3 block(WARP_SIZE);
   dim3 grid(div_ceil(N, MMA_N), div_ceil(M, MMA_M));
+
+  printf("got here \n");
 
   preprocessing_mmaSTKernelSparse<<<grid, block>>>(
       bcsrValuesA, metadata, sparseMatrixA, M, N, K, nonzeroBlocks, blockInfo,
