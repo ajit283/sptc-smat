@@ -39,6 +39,9 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
 
   size_t blockIndex = blockRow * colRegions + blockCol;
 
+  // print M
+  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "M: %d\n", M);
+
   if (warp_row >= M || warp_col >= N) {
     return;
   }
@@ -155,6 +158,8 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
 
     // if (true) {
     if (sparsityInfo == 2) {
+
+      printf("DENSE");
 
       __shared__ half A_smem[MMA_M][MMA_K];
       __shared__ half B_smem[MMA_N][MMA_K];

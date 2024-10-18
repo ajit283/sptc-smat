@@ -250,12 +250,12 @@ public:
 
     metadata->moveToDevice();
 
-    size_t sparseMatrixA_size = colRegions * rowRegions * MMA_M * (MMA_K / 8) *
-                                sizeof(int2) / sizeof(half);
+    size_t sparseMatrixA_size =
+        colRegions * (MMA_K / 8) * sizeof(int2) / sizeof(half);
 
     // half sparseMatrixA[sparseMatrixA_size];
     Matrix *sparseMatrixA =
-        new Matrix(sparseMatrixA_size, 1, "Sparse Matrix A");
+        new Matrix(sparseMatrixA_size, rowRegions * MMA_M, "Sparse Matrix A");
 
     HGEMM_CHECK(sparseMatrixA);
 
@@ -263,13 +263,16 @@ public:
 
     sparseMatrixA->moveToDevice();
 
+    // print sparseMatrixA row
+    HLOG("sparseMatrixA row: %d\n", sparseMatrixA->getRow());
+
     // HLOG("%d", m_A_sparse->getBlockInfo_host()[0]);
     usleep(m_sleep_duration * 1000);
     m_C_for_sparse->tearUp(m_base_for_sparse);
 
     preprocess(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
-               sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
-               m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
+               sparseMatrixA->getDevPtr(), sparseMatrixA->getRow(),
+               sparseMatrixA->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
                m_A_sparse->getBlockInfo_dev(),
                m_A_sparse->getRelativeBlockIndexMapping_dev());
 
@@ -280,8 +283,8 @@ public:
     for (size_t i = 0; i < m_warmup_iterations; ++i) {
       hgemm(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
             sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-            m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-            m_C_for_sparse->getCol(), m_A_sparse->getCol(),
+            m_C_for_sparse->getDevPtr(), sparseMatrixA->getRow(),
+            m_C_for_sparse->getCol(), sparseMatrixA->getCol(),
             m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
             m_A_sparse->getRelativeBlockIndexMapping_dev());
     }
@@ -519,8 +522,7 @@ private:
 
     size_t rowRegions = (m_M + MMA_M - 1) / (MMA_M);
 
-    size_t metadata_size =
-        colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half);
+    size_t metadata_size = colRegions * rowRegions * MMA_M * (MMA_K / 8) * 8;
 
     Matrix *metadata = new Matrix(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata);
@@ -529,12 +531,12 @@ private:
 
     metadata->moveToDevice();
 
-    size_t sparseMatrixA_size = colRegions * rowRegions * MMA_M * (MMA_K / 8) *
-                                sizeof(int2) / sizeof(half);
+    size_t sparseMatrixA_size =
+        colRegions * (MMA_K / 8) * sizeof(int2) / sizeof(half);
 
     // half sparseMatrixA[sparseMatrixA_size];
     Matrix *sparseMatrixA =
-        new Matrix(sparseMatrixA_size, 1, "Sparse Matrix A");
+        new Matrix(sparseMatrixA_size, rowRegions * MMA_M, "Sparse Matrix A");
 
     HGEMM_CHECK(sparseMatrixA);
 
@@ -547,8 +549,8 @@ private:
     m_C_for_sparse->tearUp(m_base_for_sparse);
 
     preprocess(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
-               sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
-               m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
+               sparseMatrixA->getDevPtr(), sparseMatrixA->getRow(),
+               sparseMatrixA->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
                m_A_sparse->getBlockInfo_dev(),
                m_A_sparse->getRelativeBlockIndexMapping_dev());
 
@@ -558,8 +560,8 @@ private:
     for (size_t i = 0; i < m_profiling_iterations; ++i) {
       hgemm(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
             sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-            m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-            m_C_for_sparse->getCol(), m_A_sparse->getCol(),
+            m_C_for_sparse->getDevPtr(), sparseMatrixA->getRow(),
+            m_C_for_sparse->getCol(), sparseMatrixA->getCol(),
             m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
             m_A_sparse->getRelativeBlockIndexMapping_dev());
     }
