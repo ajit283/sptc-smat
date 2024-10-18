@@ -240,8 +240,14 @@ public:
 
     size_t rowRegions = (m_M + MMA_M - 1) / (MMA_M);
 
-    size_t metadata_size =
-        colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half) * 2;
+    size_t nonzeroBlocks = m_A_sparse->getNonzeroblocks();
+
+    HLOG("%d nonzero blocks", nonzeroBlocks);
+
+    size_t metadata_size = nonzeroBlocks * MMA_M * (MMA_K / 8) / sizeof(half);
+
+    // size_t metadata_size =
+    //     colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half) * 2;
 
     Matrix *metadata = new Matrix(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata);
@@ -251,11 +257,11 @@ public:
     metadata->moveToDevice();
 
     size_t sparseMatrixA_size =
-        colRegions * (MMA_K / 8) * sizeof(int2) / sizeof(half);
+        nonzeroBlocks * MMA_M * (MMA_K / 8) * sizeof(int2) / sizeof(half);
 
     // half sparseMatrixA[sparseMatrixA_size];
     Matrix *sparseMatrixA =
-        new Matrix(rowRegions * MMA_M, sparseMatrixA_size, "Sparse Matrix A");
+        new Matrix(sparseMatrixA_size, 1, "Sparse Matrix A");
 
     HGEMM_CHECK(sparseMatrixA);
 
@@ -278,7 +284,7 @@ public:
                m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
                m_A_sparse->getBlockInfo_dev(),
                m_A_sparse->getRelativeBlockIndexMapping_dev());
-
+    cudaDeviceSynchronize();
     // warm up
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
@@ -525,8 +531,12 @@ private:
 
     size_t rowRegions = (m_M + MMA_M - 1) / (MMA_M);
 
-    size_t metadata_size =
-        colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half) * 2;
+    size_t nonzeroBlocks = m_A_sparse->getNonzeroblocks();
+
+    size_t metadata_size = nonzeroBlocks * MMA_M * (MMA_K / 8) / sizeof(half);
+
+    // size_t metadata_size =
+    //     colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half) * 2;
 
     Matrix *metadata = new Matrix(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata);
@@ -536,11 +546,11 @@ private:
     metadata->moveToDevice();
 
     size_t sparseMatrixA_size =
-        colRegions * (MMA_K / 8) * sizeof(int2) / sizeof(half);
+        nonzeroBlocks * MMA_M * (MMA_K / 8) * sizeof(int2) / sizeof(half);
 
     // half sparseMatrixA[sparseMatrixA_size];
     Matrix *sparseMatrixA =
-        new Matrix(rowRegions * MMA_M, sparseMatrixA_size, "Sparse Matrix A");
+        new Matrix(sparseMatrixA_size, 1, "Sparse Matrix A");
 
     HGEMM_CHECK(sparseMatrixA);
 
@@ -557,8 +567,8 @@ private:
                m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
                m_A_sparse->getBlockInfo_dev(),
                m_A_sparse->getRelativeBlockIndexMapping_dev());
-
-    usleep(m_sleep_duration * 1000);
+    cudaDeviceSynchronize();
+    usleep(100 * 1000);
 
     // m_cuda_timer.start();
     struct timeval t1, t2;

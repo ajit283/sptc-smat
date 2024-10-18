@@ -102,11 +102,9 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
         }
       }
 
-      *(metadata + (blockRow * colRegions * MMA_M * (MMA_K / 8) +
-                    i * MMA_M * (MMA_K / 8) + lane_id)) = *cur_meta;
+      *(metadata + (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)) = *cur_meta;
 
-      *(((int2 *)(sparseMatrixA)) +
-        blockRow * colRegions * MMA_M * (MMA_K / 8) + i * MMA_M * (MMA_K / 8) +
+      *(((int2 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 8) +
         lane_id) = *(int2 *)src_sparse;
     }
   }
@@ -205,18 +203,11 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
     else if (sparsityInfo == 1) {
 
       *((int2 *)(&A_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
-          *(((int2 *)(sparseMatrixA)) +
-            blockRow * colRegions * MMA_M * (MMA_K / 8) +
-            i * MMA_M * (MMA_K / 8) + lane_id);
+          *(((int2 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 8) +
+            lane_id);
 
       *((Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) =
-          *((char *)metadata + (blockRow * colRegions * MMA_M * (MMA_K / 8) +
-                                i * MMA_M * (MMA_K / 8) + lane_id));
-
-      // *((char *)metadata + (blockRow * colRegions + i * MMA_M * 2 +
-      // lane_id))
-      // =
-      //     *cur_meta;
+          *(metadata + (relativeIndex * MMA_M * (MMA_K / 8) + lane_id));
 
       if (lane_id < MMA_N * 2) {
         *((int4 *)(&B_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
@@ -226,18 +217,13 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
 
       __syncthreads();
 
-      char metadata[4];
+      char metadata_local[4];
 
-      // metadata[0] = *cur_meta;
-      metadata[0] = (char)((Meta_smem_sparse[lane_id / 4][0]));
-      metadata[1] = (char)((Meta_smem_sparse[lane_id / 4][1]));
-      metadata[2] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][0]));
-      metadata[3] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][1]));
-
-      // metadata[2] = *(cur_meta + (2 * 8));
-      // metadata[2] = *(cur_meta + (2 * 8) + 1);
-
-      // print metadata[0] as bits
+      // // metadata[0] = *cur_meta;
+      metadata_local[0] = (char)((Meta_smem_sparse[lane_id / 4][0]));
+      metadata_local[1] = (char)((Meta_smem_sparse[lane_id / 4][1]));
+      metadata_local[2] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][0]));
+      metadata_local[3] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][1]));
 
       uint32_t RA[2];
       uint32_t RB[2];
@@ -251,7 +237,7 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
       LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
 
       uint32_t meta_value;
-      memcpy(&meta_value, metadata, sizeof(uint32_t));
+      memcpy(&meta_value, metadata_local, sizeof(uint32_t));
 
       HMMA16816_SPARSE(RC[0], RC[1], RA[0], RA[1], RB[0], RB[1], RC[0], RC[1],
                        meta_value, 0x0);

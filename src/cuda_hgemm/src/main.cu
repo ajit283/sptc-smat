@@ -54,15 +54,15 @@ DEFINE_uint32(n_mult, 1, "n_mult * MMA_N = N");
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_1024.mtx",
 //               "input .mtx file");
-DEFINE_string(filename,
-              "./src/matrices/band_matrices_2_4_sparse/"
-              "band_mtx_2_4_sparse_16384_32.mtx",
-              "input .mtx file");
+// DEFINE_string(filename,
+//               "./src/matrices/band_matrices_2_4_sparse/"
+//               "band_mtx_2_4_sparse_16384_32.mtx",
+//               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_4_times/band_mtx_1024_512.mtx",
 //               "input .mtx file");
-// DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
-//               "input .mtx file");
+DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
+              "input .mtx file");
 // DEFINE_string(filename, "./src/matrices/suitesparse/shipsec1/shipsec1.mtx",
 //               "input .mtx file");
 // DEFINE_string(filename, "./src/matrices/suitesparse/mip1/mip1.mtx",
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
 
   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
