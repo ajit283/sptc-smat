@@ -144,6 +144,13 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
   // print K_tiles
   DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
 
+  __shared__ half A_smem_sparse[MMA_M][MMA_K / 2];
+  __shared__ half B_smem_sparse[MMA_N][MMA_K];
+  __shared__ char Meta_smem_sparse[MMA_M][MMA_K / 8];
+
+  __shared__ half A_smem[MMA_M][MMA_K];
+  __shared__ half B_smem[MMA_N][MMA_K];
+
 #pragma unroll
   for (size_t i = 0; i < K_tiles; ++i) {
     size_t blockIndex = blockRow * colRegions + i;
@@ -159,10 +166,6 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
     // if (true) {
     if (sparsityInfo == 2) {
 
-      printf("DENSE");
-
-      __shared__ half A_smem[MMA_M][MMA_K];
-      __shared__ half B_smem[MMA_N][MMA_K];
       // __shared__ half C_smem[MMA_M][MMA_N];
 
       *((int4 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
@@ -197,21 +200,16 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
 
       HMMA16816(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1], RC[0],
                 RC[1]);
-
     }
 
     else if (sparsityInfo == 1) {
 
-      __shared__ half A_smem[MMA_M][MMA_K / 2];
-      __shared__ half B_smem[MMA_N][MMA_K];
-      __shared__ char Meta_smem[MMA_M][MMA_K / 8];
-
-      *((int2 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
+      *((int2 *)(&A_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
           *(((int2 *)(sparseMatrixA)) +
             blockRow * colRegions * MMA_M * (MMA_K / 8) +
             i * MMA_M * (MMA_K / 8) + lane_id);
 
-      *((Meta_smem[lane_id / 2]) + (lane_id % 2)) =
+      *((Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) =
           *((char *)metadata + (blockRow * colRegions * MMA_M * (MMA_K / 8) +
                                 i * MMA_M * (MMA_K / 8) + lane_id));
 
@@ -221,18 +219,20 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
       //     *cur_meta;
 
       if (lane_id < MMA_N * 2) {
-        *((int4 *)(&B_smem[lane_id / 2][0]) + lane_id % 2) =
+        *((int4 *)(&B_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
             *((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
               lane_id % 2);
       }
 
+      __syncthreads();
+
       char metadata[4];
 
       // metadata[0] = *cur_meta;
-      metadata[0] = (char)((Meta_smem[lane_id / 4][0]));
-      metadata[1] = (char)((Meta_smem[lane_id / 4][1]));
-      metadata[2] = (char)((Meta_smem[(lane_id / 4) + 8][0]));
-      metadata[3] = (char)((Meta_smem[(lane_id / 4) + 8][1]));
+      metadata[0] = (char)((Meta_smem_sparse[lane_id / 4][0]));
+      metadata[1] = (char)((Meta_smem_sparse[lane_id / 4][1]));
+      metadata[2] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][0]));
+      metadata[3] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][1]));
 
       // metadata[2] = *(cur_meta + (2 * 8));
       // metadata[2] = *(cur_meta + (2 * 8) + 1);
@@ -242,12 +242,12 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
       uint32_t RA[2];
       uint32_t RB[2];
 
-      uint32_t A_smem_lane_addr =
-          __cvta_generic_to_shared(&A_smem[lane_id % 16][(lane_id / 16) * 4]);
+      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+          &A_smem_sparse[lane_id % 16][(lane_id / 16) * 4]);
       LDMATRIX_X2(RA[0], RA[1], A_smem_lane_addr);
 
       uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-          &B_smem[lane_id % 8][((lane_id / 8) % 2) * 8]);
+          &B_smem_sparse[lane_id % 8][((lane_id / 8) % 2) * 8]);
       LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
 
       uint32_t meta_value;
@@ -287,8 +287,6 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                int *relativeBlockIndexMapping) {
   dim3 block(WARP_SIZE);
   dim3 grid(div_ceil(N, MMA_N), div_ceil(M, MMA_M));
-
-  printf("got here \n");
 
   preprocessing_mmaSTKernelSparse<<<grid, block>>>(
       bcsrValuesA, metadata, sparseMatrixA, M, N, K, nonzeroBlocks, blockInfo,

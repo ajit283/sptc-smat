@@ -525,7 +525,8 @@ private:
 
     size_t rowRegions = (m_M + MMA_M - 1) / (MMA_M);
 
-    size_t metadata_size = colRegions * rowRegions * MMA_M * (MMA_K / 8) * 8;
+    size_t metadata_size =
+        colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half) * 2;
 
     Matrix *metadata = new Matrix(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata);
@@ -539,7 +540,7 @@ private:
 
     // half sparseMatrixA[sparseMatrixA_size];
     Matrix *sparseMatrixA =
-        new Matrix(sparseMatrixA_size, rowRegions * MMA_M, "Sparse Matrix A");
+        new Matrix(rowRegions * MMA_M, sparseMatrixA_size, "Sparse Matrix A");
 
     HGEMM_CHECK(sparseMatrixA);
 
@@ -552,10 +553,12 @@ private:
     m_C_for_sparse->tearUp(m_base_for_sparse);
 
     preprocess(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
-               sparseMatrixA->getDevPtr(), sparseMatrixA->getRow(),
-               sparseMatrixA->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
+               sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
+               m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
                m_A_sparse->getBlockInfo_dev(),
                m_A_sparse->getRelativeBlockIndexMapping_dev());
+
+    usleep(m_sleep_duration * 1000);
 
     // m_cuda_timer.start();
     struct timeval t1, t2;
@@ -563,8 +566,8 @@ private:
     for (size_t i = 0; i < m_profiling_iterations; ++i) {
       hgemm(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
             sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-            m_C_for_sparse->getDevPtr(), sparseMatrixA->getRow(),
-            m_C_for_sparse->getCol(), sparseMatrixA->getCol(),
+            m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
+            m_C_for_sparse->getCol(), m_A_sparse->getCol(),
             m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
             m_A_sparse->getRelativeBlockIndexMapping_dev());
     }

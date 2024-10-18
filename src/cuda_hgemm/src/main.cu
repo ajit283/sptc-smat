@@ -35,6 +35,9 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
 DEFINE_uint32(M, 16384, "M");
 DEFINE_uint32(N, 16384, "N");
 DEFINE_uint32(K, 16384, "K");
+// DEFINE_uint32(M, 1024, "M");
+// DEFINE_uint32(N, 1024, "N");
+// DEFINE_uint32(K, 1024, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -137,17 +140,17 @@ int main(int argc, char *argv[]) {
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
                 FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
-  tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
 
   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
   //   tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
                           "Mma-ST-Kernel");
 
-  tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
-  tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
+  //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+  //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 
