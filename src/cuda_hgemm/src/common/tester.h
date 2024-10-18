@@ -238,8 +238,10 @@ public:
 
     size_t colRegions = (m_K + MMA_K - 1) / (MMA_K);
 
+    size_t rowRegions = (m_M + MMA_M - 1) / (MMA_M);
+
     size_t metadata_size =
-        ceil(((m_M / 16) * (m_K / 16) + 2 * m_K + 31) / 256) * 256 / 2;
+        colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half);
 
     Matrix *metadata = new Matrix(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata);
@@ -248,8 +250,8 @@ public:
 
     metadata->moveToDevice();
 
-    size_t sparseMatrixA_size =
-        ceil(((m_M * m_K / 4) + 32 * m_K + 128) / 128) * 128;
+    size_t sparseMatrixA_size = colRegions * rowRegions * MMA_M * (MMA_K / 8) *
+                                sizeof(int2) / sizeof(half);
 
     // half sparseMatrixA[sparseMatrixA_size];
     Matrix *sparseMatrixA =
@@ -265,11 +267,11 @@ public:
     usleep(m_sleep_duration * 1000);
     m_C_for_sparse->tearUp(m_base_for_sparse);
 
-    // preprocess(m_A_sparse->getBcsrValues(), metadata->getDevPtr(),
-    //            sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
-    //            m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
-    //            m_A_sparse->getBlockInfo_dev(),
-    //            m_A_sparse->getRelativeBlockIndexMapping_dev());
+    preprocess(m_A_sparse->getBcsrValues(), metadata->getDevPtr(),
+               sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
+               m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
+               m_A_sparse->getBlockInfo_dev(),
+               m_A_sparse->getRelativeBlockIndexMapping_dev());
 
     // warm up
     struct timeval t1, t2;
