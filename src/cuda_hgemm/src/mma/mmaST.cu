@@ -26,6 +26,8 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
                                 int *relativeBlockIndexMapping) {
   int PRINT_THREAD_ID = 11;
   DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
+  // M = M * 2;
+  // N = N * 2;
   // mmaSTKernel
   const size_t K_tiles = div_ceil(K, MMA_K);
 
@@ -99,15 +101,13 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
           }
         }
       }
+
       *(metadata + (blockRow * colRegions * MMA_M * (MMA_K / 8) +
                     i * MMA_M * (MMA_K / 8) + lane_id)) = *cur_meta;
 
       *(((int2 *)(sparseMatrixA)) +
         blockRow * colRegions * MMA_M * (MMA_K / 8) + i * MMA_M * (MMA_K / 8) +
         lane_id) = *(int2 *)src_sparse;
-
-      *((int2 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
-          *((int2 *)src_sparse);
     }
   }
 }

@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 // Debug macro
-#define DEBUG 1 // Set to 0 to disable debug prints
+#define DEBUG 0 // Set to 0 to disable debug prints
 
 #if DEBUG
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
