@@ -20,7 +20,7 @@
 // 2 - dense block
 
 __global__ void
-preprocessing_mmaSTKernelSparse(half *bcsrValuesA, half *metadata,
+preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
                                 half *sparseMatrixA, size_t M, size_t N,
                                 size_t K, size_t nonzeroBlocks, int *blockInfo,
                                 int *relativeBlockIndexMapping) {
@@ -96,8 +96,8 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, half *metadata,
           }
         }
       }
-      *((char *)metadata + (blockRow * colRegions * MMA_M * (MMA_K / 8) +
-                            i * MMA_M * (MMA_K / 8) + lane_id)) = *cur_meta;
+      *(metadata + (blockRow * colRegions * MMA_M * (MMA_K / 8) +
+                    i * MMA_M * (MMA_K / 8) + lane_id)) = *cur_meta;
 
       *(((int2 *)(sparseMatrixA)) +
         blockRow * colRegions * MMA_M * (MMA_K / 8) + i * MMA_M * (MMA_K / 8) +
@@ -276,7 +276,7 @@ void mmaSTKernel(half *bcsrValuesA, char *metadata, half *sparseMatrixA,
                                      relativeBlockIndexMapping);
 }
 
-void preprocessing_mmaSTKernel(half *bcsrValuesA, half *metadata,
+void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
                                size_t K, size_t nonzeroBlocks, int *blockInfo,
                                int *relativeBlockIndexMapping) {

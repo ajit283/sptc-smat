@@ -233,7 +233,7 @@ public:
   template <typename Func, typename PreprocessFunc>
   void evaluateSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
                         const std::string &name) {
-    HLOG("----------------- Sparse Evaluating %s -----------------",
+    HLOG("----------------- Sparse Evaluating 24 %s -----------------",
          name.c_str());
 
     size_t colRegions = (m_K + MMA_K - 1) / (MMA_K);
@@ -267,7 +267,7 @@ public:
     usleep(m_sleep_duration * 1000);
     m_C_for_sparse->tearUp(m_base_for_sparse);
 
-    preprocess(m_A_sparse->getBcsrValues(), metadata->getDevPtr(),
+    preprocess(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
                sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
                m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
                m_A_sparse->getBlockInfo_dev(),
@@ -514,50 +514,54 @@ private:
   template <typename Func, typename PreprocessFunc>
   void profileSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
                        const std::string &name) {
+
     size_t colRegions = (m_K + MMA_K - 1) / (MMA_K);
 
+    size_t rowRegions = (m_M + MMA_M - 1) / (MMA_M);
+
     size_t metadata_size =
-        ceil(((m_M / 16) * (m_K / 16) + 2 * m_K + 31) / 256) * 256 / 2;
+        colRegions * rowRegions * MMA_M * (MMA_K / 8) / sizeof(half);
 
     Matrix *metadata = new Matrix(metadata_size, 1, "Matrix metadata");
+    HGEMM_CHECK(metadata);
 
     metadata->memSetHost();
 
     metadata->moveToDevice();
 
-    size_t sparseMatrixA_size =
-        ceil(((m_M * m_K / 4) + 32 * m_K + 128) / 128) * 128;
+    size_t sparseMatrixA_size = colRegions * rowRegions * MMA_M * (MMA_K / 8) *
+                                sizeof(int2) / sizeof(half);
 
     // half sparseMatrixA[sparseMatrixA_size];
     Matrix *sparseMatrixA =
         new Matrix(sparseMatrixA_size, 1, "Sparse Matrix A");
 
+    HGEMM_CHECK(sparseMatrixA);
+
     sparseMatrixA->memSetHost();
 
     sparseMatrixA->moveToDevice();
 
-    preprocess(m_A_sparse->getBcsrValues(), (metadata->getDevPtr()),
+    // HLOG("%d", m_A_sparse->getBlockInfo_host()[0]);
+    usleep(m_sleep_duration * 1000);
+    m_C_for_sparse->tearUp(m_base_for_sparse);
+
+    preprocess(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
                sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
                m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
                m_A_sparse->getBlockInfo_dev(),
                m_A_sparse->getRelativeBlockIndexMapping_dev());
-    struct timeval t1, t2;
+
     // m_cuda_timer.start();
+    struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (size_t i = 0; i < m_profiling_iterations; ++i) {
-      // gettimeofday(&t1, NULL);
       hgemm(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
             sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
             m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
             m_C_for_sparse->getCol(), m_A_sparse->getCol(),
             m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
             m_A_sparse->getRelativeBlockIndexMapping_dev());
-      // cudaDeviceSynchronize();
-      // gettimeofday(&t2, NULL);
-      // m_profiling_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec -
-      // t1.tv_usec) / 1000.0); FILE* fout; fout = fopen("results_smat.csv",
-      // "a"); fprintf(fout, "%lf\n", m_profiling_time); fclose(fout);
-      HLOG("%lf", m_profiling_time);
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);
@@ -566,6 +570,9 @@ private:
     m_profiling_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 +
                         (t2.tv_usec - t1.tv_usec) / 1000.0) /
                        static_cast<double>(m_profiling_iterations);
+
+    // m_profiling_time = static_cast<double>(m_cuda_timer.end()) /
+    // static_cast<double>(m_profiling_iterations);
     m_throughput = static_cast<double>(m_A_sparse->getNonzeroblocks() * MMA_M *
                                        MMA_K * 2) *
                    1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
@@ -578,7 +585,7 @@ private:
 
     FILE *fout;
     fout = fopen("results_smat.csv", "a");
-    fprintf(fout, "%s,%lf\n", m_file.data(), m_profiling_time);
+    fprintf(fout, "%s, %lf\n", m_file.data(), m_profiling_time);
     fclose(fout);
     HLOG("%s exit, profiling time: %.3f ms (%.2f%%), throughput: %.3f TFLOPS "
          "(%.2f%%)",

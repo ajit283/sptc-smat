@@ -27,7 +27,7 @@ HGEMM_FUNC_SPARSE2(mmaBKernel);
 HGEMM_FUNC_SPARSE2(mmaBTKernel);
 HGEMM_FUNC_SPARSE2(mmaCBTKernel);
 
-void preprocessing_mmaSTKernel(half *bcsrValuesA, half *metadata,
+void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
                                size_t K, size_t nonzeroBlocks, int *blockInfo,
                                int *relativeBlockIndexMapping);
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
 
   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
