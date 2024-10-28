@@ -41,6 +41,9 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
 
   const size_t lane_id = threadIdx.x % WARP_SIZE;
 
+  uint32_t RA[NUM_STAGES][4];
+  uint32_t RB[NUM_STAGES][2];
+
   cuda::pipeline<cuda::thread_scope_thread> pipe = cuda::make_pipeline();
 
   // Load all pipeline stages.
@@ -73,6 +76,16 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
              lane_id % 2),
             sizeof(int4), pipe);
       }
+
+      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+          &A_smem[stage][lane_id % 16][(lane_id / 16) * 8]);
+      LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
+                  A_smem_lane_addr);
+
+      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+          &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
+      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
+
       pipe.producer_commit();
     }
   }
@@ -86,19 +99,18 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
     cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
 
     __syncthreads();
-    uint32_t RA[4];
-    uint32_t RB[2];
 
     uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
         &A_smem[stage][lane_id % 16][(lane_id / 16) * 8]);
-    LDMATRIX_X4(RA[0], RA[1], RA[2], RA[3], A_smem_lane_addr);
+    LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
+                A_smem_lane_addr);
 
     uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
         &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
-    LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
+    LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
 
-    HMMA16816(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1], RC[0],
-              RC[1]);
+    HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
+              RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
 
     __syncthreads();
 
@@ -136,6 +148,15 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
              lane_id % 2),
             sizeof(int4), pipe);
       }
+
+      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+          &A_smem[stage][lane_id % 16][(lane_id / 16) * 8]);
+      LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
+                  A_smem_lane_addr);
+
+      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+          &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
+      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
     }
 
     pipe.producer_commit();
