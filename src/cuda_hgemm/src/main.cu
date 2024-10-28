@@ -26,6 +26,7 @@ HGEMM_FUNC_SPARSE24(mmaSTKernel);
 HGEMM_FUNC_SPARSE2(mmaBKernel);
 HGEMM_FUNC_SPARSE2(mmaBTKernel);
 HGEMM_FUNC_SPARSE2(mmaCBTKernel);
+HGEMM_FUNC_SPARSE2(mmaOBTKernel);
 
 void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
@@ -138,7 +139,7 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
 
   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
@@ -150,6 +151,7 @@ int main(int argc, char *argv[]) {
   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 

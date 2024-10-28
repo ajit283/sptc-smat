@@ -14,6 +14,8 @@
 #include "mma.h"
 #include "ptx.h"
 #include "util.h"
+
+#include "logging_cuda.h"
 // #include "mmio_highlevel.h"
 
 #define HGEMM_LIKELY(x) __builtin_expect(!!(x), 1)

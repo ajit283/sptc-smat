@@ -1,10 +1,10 @@
-#pragma once
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <stdio.h>
 
 #include "common.h"
+#include "logging_cuda.h"
 
 #define MMA_M 16
 #define MMA_N 8
@@ -40,10 +40,15 @@ __global__ void mmaCBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
   auto group = cooperative_groups::this_thread_block();
 
   uint32_t RC[2] = {0, 0};
+
+  DEBUG_PRINT_THREAD(0, "start\n");
 #pragma unroll
   for (size_t ptr = bcsrRowPtrA[blockRow]; ptr < bcsrRowPtrA[blockRow + 1];
        ptr++) {
     size_t i = bcsrColIdxA[ptr] / MMA_K;
+
+    DEBUG_PRINT_THREAD(0, "ptr: %d, i: %d\n", (int)ptr, (int)i);
+
     // skip empty block
     size_t blockIndex = blockRow * colRegions + i;
 
@@ -77,6 +82,8 @@ __global__ void mmaCBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
 
     group.sync();
   }
+
+  DEBUG_PRINT_THREAD(0, "end\n");
 
   *((uint32_t *)(&C_smem[lane_id / 4][0]) + lane_id % 4) = RC[0];
   *((uint32_t *)(&C_smem[lane_id / 4 + 8][0]) + lane_id % 4) = RC[1];

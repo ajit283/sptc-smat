@@ -7,7 +7,6 @@
 #include <stdio.h>
 
 #include "common.h"
-#include "logging_cuda.h"
 #include "ptx.h"
 
 #define MMA_M 16
