@@ -32,12 +32,12 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                size_t K, size_t nonzeroBlocks, int *blockInfo,
                                int *relativeBlockIndexMapping);
 
-DEFINE_uint32(M, 16384, "M");
-DEFINE_uint32(N, 16384, "N");
-DEFINE_uint32(K, 16384, "K");
-// DEFINE_uint32(M, 1024, "M");
-// DEFINE_uint32(N, 1024, "N");
-// DEFINE_uint32(K, 1024, "K");
+// DEFINE_uint32(M, 16384, "M");
+// DEFINE_uint32(N, 16384, "N");
+// DEFINE_uint32(K, 16384, "K");
+DEFINE_uint32(M, 1024, "M");
+DEFINE_uint32(N, 1024, "N");
+DEFINE_uint32(K, 1024, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -50,10 +50,10 @@ DEFINE_bool(enable_check, false,
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
 DEFINE_uint32(n_mult, 1, "n_mult * MMA_N = N");
-// DEFINE_string(filename,
-//               "./src/matrices/2_4_sparse_matrices/"
-//               "2_4_sparse_mtx_1024.mtx",
-//               "input .mtx file");
+DEFINE_string(filename,
+              "./src/matrices/2_4_sparse_matrices/"
+              "2_4_sparse_mtx_1024.mtx",
+              "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_2_4_sparse/"
 //               "band_mtx_2_4_sparse_16384_32.mtx",
@@ -61,10 +61,9 @@ DEFINE_uint32(n_mult, 1, "n_mult * MMA_N = N");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_4_times/band_mtx_1024_512.mtx",
 //               "input .mtx file");
-DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
-              "input .mtx file");
-// DEFINE_string(filename, "./src/matrices/suitesparse/shipsec1/shipsec1.mtx",
+// DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
 //               "input .mtx file");
+
 // DEFINE_string(filename, "./src/matrices/suitesparse/mip1/mip1.mtx",
 //               "input .mtx file");
 
@@ -139,18 +138,18 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-  //   tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+  //     tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
                           "Mma-ST-Kernel");
 
   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
-  //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+  tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 
