@@ -77,15 +77,6 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
             sizeof(int4), pipe);
       }
 
-      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-          &A_smem[stage][lane_id % 16][(lane_id / 16) * 8]);
-      LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
-                  A_smem_lane_addr);
-
-      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-          &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
-      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
-
       pipe.producer_commit();
     }
   }
@@ -148,15 +139,6 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
              lane_id % 2),
             sizeof(int4), pipe);
       }
-
-      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-          &A_smem[stage][lane_id % 16][(lane_id / 16) * 8]);
-      LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
-                  A_smem_lane_addr);
-
-      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-          &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
-      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
     }
 
     pipe.producer_commit();
