@@ -12,11 +12,11 @@ set(CMAKE_CUDA_ARCHITECTURES 89 CACHE STRING "CUDA architecture")
 
 set (CMAKE_VERBOSE_MAKEFILE ${HGEMM_VERBOSE_MAKEFILE})
 
-set (CMAKE_C_FLAGS "-std=c11")
+set (CMAKE_C_FLAGS "-std=c17")
 set (CMAKE_C_FLAGS_DEBUG "$ENV{CFLAGS} -O0 -g2 -ggdb")
 set (CMAKE_C_FLAGS_RELEASE "$ENV{CFLAGS} -O3")
 
-set (CMAKE_CXX_FLAGS "-std=c++11")
+set (CMAKE_CXX_FLAGS "-std=c++17")
 set (CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -g2 -ggdb")
 set (CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3")
 
@@ -38,7 +38,7 @@ unset (CUDA_USE_STATIC_CUDA_RUNTIME CACHE)
 option (CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 
 set (CUDA_VERBOSE_BUILD ${HGEMM_VERBOSE_MAKEFILE})
-set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -Xptxas=-v -v -Xcompiler -fopenmp")
+set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda")
 if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -arch=sm_${CMAKE_CUDA_ARCHITECTURES} -g -lineinfo -O0")
 else ()

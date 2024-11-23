@@ -27,8 +27,8 @@
 
 // Helper function to print matrices
 template <typename T>
-__device__ void debugPrintMatrix(const char *name, T *matrix, int rows,
-                                 int cols) {
+__device__ static void debugPrintMatrix(const char *name, T *matrix, int rows,
+                                        int cols) {
   printf("begin print matrix %s\n", name);
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
@@ -40,7 +40,7 @@ __device__ void debugPrintMatrix(const char *name, T *matrix, int rows,
 }
 
 // Helper function to print bits
-__device__ void debugPrintBits(const char *name, char *data, int size) {
+__device__ static void debugPrintBits(const char *name, char *data, int size) {
   printf("begin print %s as bits\n", name);
   for (int i = 0; i < size; i++) {
     for (int bit = 7; bit >= 0; bit--) {
@@ -64,9 +64,9 @@ __device__ void debugPrintBits(const char *name, char *data, int size) {
   } while (0);
 
 template <typename T>
-__device__ void debugPrintMatrix(const char *name, T *matrix, int rows,
-                                 int cols) {}
-__device__ void debugPrintBits(const char *name, char *data, int size) {}
+__device__ static void debugPrintMatrix(const char *name, T *matrix, int rows,
+                                        int cols) {}
+__device__ static void debugPrintBits(const char *name, char *data, int size) {}
 #endif // DEBUG
 
 #endif // LOGGING_CUDA_CUH

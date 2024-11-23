@@ -155,15 +155,15 @@ def main():
         b_min = sys.argv[3]
         b_max = sys.argv[4]
         
-    # generate_2_4_sparse_matrix(1024, 0.4)
+    generate_2_4_sparse_matrix(2048, 0.1)
 
-    N = N_min
-    while (N <= N_max):
-        b = b_min
-        while (b <= b_max):
-            generate_band_mtx_matrix_2_4_sparse(N, b)
-            b *= 4
-        N *= 2
+    # N = N_min
+    # while (N <= N_max):
+    #     b = b_min
+    #     while (b <= b_max):
+    #         generate_band_mtx_matrix_2_4_sparse(N, b)
+    #         b *= 4
+    #     N *= 2
 
 if __name__ == '__main__':
     main()
