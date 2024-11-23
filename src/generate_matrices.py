@@ -155,7 +155,7 @@ def main():
         b_min = sys.argv[3]
         b_max = sys.argv[4]
         
-    generate_2_4_sparse_matrix(2048, 0.01)
+    generate_2_4_sparse_matrix(2048, 0.1)
 
     # N = N_min
     # while (N <= N_max):
