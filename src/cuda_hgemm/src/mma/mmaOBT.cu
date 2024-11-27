@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "logging_cuda.h"
 
 #define MMA_M 16
 #define MMA_N 8
@@ -35,6 +36,9 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
     return;
   }
 
+  const size_t current_row_ptr = bcsrRowPtrA[blockRow];
+  const size_t next_row_ptr = bcsrRowPtrA[blockRow + 1];
+
   __shared__ half A_smem[NUM_STAGES][MMA_M][MMA_K];
   __shared__ half B_smem[NUM_STAGES][MMA_N][MMA_K];
   __shared__ half C_smem[MMA_M][MMA_N];
@@ -44,14 +48,43 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
   uint32_t RA[NUM_STAGES][4];
   uint32_t RB[NUM_STAGES][2];
 
+  __shared__ int bcsrColIdxA_preload[NUM_STAGES];
+  __shared__ int relativeIndex_preload[NUM_STAGES];
+
   cuda::pipeline<cuda::thread_scope_thread> pipe = cuda::make_pipeline();
 
   // Load all pipeline stages.
   for (int stage = 0; stage < NUM_STAGES; ++stage) {
     pipe.producer_acquire();
 
-    size_t ptr = bcsrRowPtrA[blockRow] + stage;
-    if (ptr < bcsrRowPtrA[blockRow + 1]) {
+    size_t stage_ptr = current_row_ptr + NUM_STAGES + stage - 1;
+
+    // if (stage_ptr + 1 < bcsrRowPtrA[blockRow + 1]) {
+
+    //   size_t bcsr_pr = bcsrColIdxA[stage_ptr + 1];
+
+    //   bcsrColIdxA_preload[stage] = bcsr_pr;
+    //   size_t blockIndex_preload = blockRow * colRegions + (bcsr_pr / MMA_K);
+
+    //   relativeIndex_preload[stage] =
+    //       relativeBlockIndexMapping[blockIndex_preload];
+    // }
+
+    if (stage_ptr + 1 < next_row_ptr) {
+      if (lane_id == 0) {
+        cuda::memcpy_async(
+            &relativeIndex_preload[stage],
+            &relativeBlockIndexMapping[blockRow * colRegions +
+                                       (bcsrColIdxA[stage_ptr + 1] / MMA_K)],
+            sizeof(int), pipe);
+
+        cuda::memcpy_async(&bcsrColIdxA_preload[stage],
+                           &bcsrColIdxA[stage_ptr + 1], sizeof(int), pipe);
+      }
+    }
+
+    size_t ptr = current_row_ptr + stage;
+    if (ptr < next_row_ptr) {
       size_t i = bcsrColIdxA[ptr] / MMA_K;
       // skip empty block
       size_t blockIndex = blockRow * colRegions + i;
@@ -84,8 +117,7 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
   uint32_t RC[2] = {0, 0};
   int stage = 0;
 #pragma unroll
-  for (size_t ptr = bcsrRowPtrA[blockRow]; ptr < bcsrRowPtrA[blockRow + 1];
-       ptr++) {
+  for (size_t ptr = current_row_ptr; ptr < next_row_ptr; ptr++) {
 
     cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
 
@@ -113,13 +145,55 @@ __global__ void mmaOBTKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
 
     size_t stage_ptr = ptr + NUM_STAGES;
 
-    if (stage_ptr < bcsrRowPtrA[blockRow + 1]) {
+    int metaLoadStage = (stage + 1) % NUM_STAGES;
 
-      size_t i = bcsrColIdxA[stage_ptr] / MMA_K;
+    if (stage_ptr < next_row_ptr) {
+
+      cuda::pipeline_consumer_wait_prior<NUM_STAGES - 2>(pipe);
+
+      // size_t i = bcsrColIdxA[stage_ptr] / MMA_K;
+      size_t i = bcsrColIdxA_preload[stage] / MMA_K;
+      DEBUG_PRINT_THREAD(1, "bcsr without preload: %d\n",
+                         bcsrColIdxA[stage_ptr]);
+      DEBUG_PRINT_THREAD(1, "bcsr_preload: %d\n", bcsrColIdxA_preload[stage]);
+
       // skip empty block
       size_t blockIndex = blockRow * colRegions + i;
 
-      size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+      // size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+      size_t relativeIndex = relativeIndex_preload[stage];
+      // printf("relativeIndex %d\n", relativeIndex);
+      // printf("relativeIndex_preload %d\n",
+      //        relativeIndex_preload[metaLoadStage]);
+      DEBUG_PRINT_THREAD(1, "relativeIndex: %d\n", relativeIndex);
+      DEBUG_PRINT_THREAD(1, "relativeIndex_preload: %d\n",
+                         relativeIndex_preload[stage]);
+
+      // if (stage_ptr + 1 < bcsrRowPtrA[blockRow + 1]) {
+      //   size_t bcsr_pr = bcsrColIdxA[stage_ptr + 1];
+
+      //   bcsrColIdxA_preload[metaLoadStage] = bcsr_pr;
+      //   size_t blockIndex_preload = blockRow * colRegions + (bcsr_pr /
+      //   MMA_K);
+
+      //   relativeIndex_preload[metaLoadStage] =
+      //       relativeBlockIndexMapping[blockIndex_preload];
+      // }
+
+      if (stage_ptr + 1 < next_row_ptr) {
+        if (lane_id == 0) { // Only one thread needs to do this
+          cuda::memcpy_async(&bcsrColIdxA_preload[metaLoadStage],
+                             &bcsrColIdxA[stage_ptr + 1], sizeof(int), pipe);
+
+          size_t blockIndex_preload =
+              blockRow * colRegions + (bcsrColIdxA[stage_ptr + 1] / MMA_K);
+          cuda::memcpy_async(&relativeIndex_preload[metaLoadStage],
+                             &relativeBlockIndexMapping[blockIndex_preload],
+                             sizeof(int), pipe);
+        }
+      }
+
+      // __syncwarp();
 
       size_t A_size = MMA_M * MMA_K * sizeof(half);
       size_t B_size = MMA_N * MMA_K * sizeof(half);
