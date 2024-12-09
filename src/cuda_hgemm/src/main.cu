@@ -42,12 +42,12 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
 // DEFINE_uint32(M, 16384, "M");
 // DEFINE_uint32(N, 16384, "N");
 // DEFINE_uint32(K, 16384, "K");
-// DEFINE_uint32(M, 121192, "M");
-// DEFINE_uint32(N, 121192, "N");
-// DEFINE_uint32(K, 121192, "K");
-DEFINE_uint32(M, 2048, "M");
-DEFINE_uint32(N, 2048, "N");
-DEFINE_uint32(K, 2048, "K");
+DEFINE_uint32(M, 121192, "M");
+DEFINE_uint32(N, 121192, "N");
+DEFINE_uint32(K, 121192, "K");
+// DEFINE_uint32(M, 2048, "M");
+// DEFINE_uint32(N, 2048, "N");
+// DEFINE_uint32(K, 2048, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -77,6 +77,96 @@ DEFINE_uint32(n_mult, 8, "n_mult * MMA_N = N");
 //               "input .mtx file");
 DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
               "input .mtx file");
+
+void testBcsrBlocking() {
+  SparseMatrix testMatrix(
+      "TestMatrix",
+      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_1024.mtx");
+
+  // Print original matrix pattern for visualization
+  std::cout << "Original matrix pattern:\n";
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      bool found = false;
+      for (int k = testMatrix.getBcsrRowPtrHost()[i / MMA_M];
+           k < testMatrix.getBcsrRowPtrHost()[i / MMA_M + 1]; k++) {
+        if (testMatrix.getBcsrColIdxHost()[k] <= j &&
+            j < testMatrix.getBcsrColIdxHost()[k] + MMA_K) {
+          if (__half2float(testMatrix.getBcsrValuesHost()[k * MMA_M * MMA_K +
+                                                          (i % MMA_M) * MMA_K +
+                                                          (j % MMA_K)]) !=
+              0.0f) {
+            found = true;
+            break;
+          }
+        }
+      }
+      std::cout << (found ? "1 " : "0 ");
+    }
+    std::cout << "\n";
+  }
+
+  // Try blocking with size 2
+  int blockSize = 2;
+  std::cout << "\nTesting blocking with size " << blockSize << "...\n";
+  //   testMatrix.bcsrBlocking(blockSize);
+
+  // Print merged blocks
+  // print number of merged nonzero blocks
+  std::cout << "\nNumber of merged nonzero blocks: "
+            << testMatrix.getMergedNonzeroBlocks() << "\n";
+
+  for (int i = 0; i < testMatrix.getMergedNonzeroBlocks(); i++) {
+    std::cout << "\nMerged Block " << i << ":\n";
+    for (int row = 0; row < blockSize * MMA_M; row++) {
+      for (int col = 0; col < blockSize * MMA_K; col++) {
+        float val = __half2float(
+            testMatrix
+                .getMergedBcsrValuesHost()[i * blockSize * blockSize * MMA_M *
+                                               MMA_K +
+                                           row * blockSize * MMA_K + col]);
+        printf("%4.1f ", val);
+      }
+      std::cout << "\n";
+    }
+  }
+
+  // Verify that all original non-zero values are present in merged blocks
+  bool allValuesFound = true;
+  for (int row = 0; row < 8; row++) {
+    for (int origBlock = testMatrix.getBcsrRowPtrHost()[row / MMA_M];
+         origBlock < testMatrix.getBcsrRowPtrHost()[row / MMA_M + 1];
+         origBlock++) {
+
+      int col = testMatrix.getBcsrColIdxHost()[origBlock];
+      float val = __half2float(
+          testMatrix
+              .getBcsrValuesHost()[origBlock * MMA_M * MMA_K +
+                                   (row % MMA_M) * MMA_K + (col % MMA_K)]);
+
+      if (val != 0.0f) {
+        bool found = false;
+        // Search in merged blocks
+        for (int mergedBlock = 0;
+             mergedBlock < testMatrix.getMergedNonzeroBlocks(); mergedBlock++) {
+          // Check if value is present in this merged block
+          // ... (add check here)
+          if (found)
+            break;
+        }
+        if (!found) {
+          std::cout << "Value at (" << row << "," << col
+                    << ") not found in merged blocks!\n";
+          allValuesFound = false;
+        }
+      }
+    }
+  }
+
+  if (allValuesFound) {
+    std::cout << "All values successfully found in merged blocks!\n";
+  }
+}
 
 // DEFINE_string(filename, "./src/matrices/suitesparse/mip1/mip1.mtx",
 //               "input .mtx file");
@@ -150,24 +240,26 @@ int main(int argc, char *argv[]) {
 
   std::string file(FLAGS_filename);
   HLOG("Input .mtx: %s", file.data());
-  Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
-                FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
+  //   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
+  //                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
+  //                 FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
 
-  //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
-  tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-  //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
-  tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
-                          "Mma-ST-Kernel");
+  //   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
+  //   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+  //   //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  //   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
+  //                           "Mma-ST-Kernel");
 
-  //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
-  tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
+  //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+  //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  //   tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
 
-  tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
-                            "Mma-OBTS-Kernel");
+  //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
+  //                             "Mma-OBTS-Kernel");
+
+  testBcsrBlocking();
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 
