@@ -81,43 +81,98 @@ DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
 void testBcsrBlocking() {
   SparseMatrix testMatrix(
       "TestMatrix",
-      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_1024.mtx");
+      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_8_0.5000.mtx");
 
-  // Print original matrix pattern for visualization
-  std::cout << "Original matrix pattern:\n";
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-      bool found = false;
+  // Get matrix dimensions and check they're valid
+  size_t rows = testMatrix.getRow();
+  size_t cols = testMatrix.getCol();
+  std::cout << "Testing matrix of size " << rows << "x" << cols << std::endl;
+
+  // Print original matrix pattern for visualization (up to 32x32)
+  const int DISPLAY_SIZE = 8;
+  size_t display_rows = std::min(rows, (size_t)DISPLAY_SIZE);
+  size_t display_cols = std::min(cols, (size_t)DISPLAY_SIZE);
+
+  std::cout << "\nOriginal matrix pattern (showing first " << display_rows
+            << "x" << display_cols << "):\n";
+  for (size_t i = 0; i < display_rows; i++) {
+    for (size_t j = 0; j < display_cols; j++) {
+      float value = 0.0f;
       for (int k = testMatrix.getBcsrRowPtrHost()[i / MMA_M];
            k < testMatrix.getBcsrRowPtrHost()[i / MMA_M + 1]; k++) {
         if (testMatrix.getBcsrColIdxHost()[k] <= j &&
             j < testMatrix.getBcsrColIdxHost()[k] + MMA_K) {
-          if (__half2float(testMatrix.getBcsrValuesHost()[k * MMA_M * MMA_K +
-                                                          (i % MMA_M) * MMA_K +
-                                                          (j % MMA_K)]) !=
-              0.0f) {
-            found = true;
+          float val = __half2float(
+              testMatrix
+                  .getBcsrValuesHost()[k * MMA_M * MMA_K + (i % MMA_M) * MMA_K +
+                                       (j % MMA_K)]);
+          if (val != 0.0f) {
+            value = val;
             break;
           }
         }
       }
-      std::cout << (found ? "1 " : "0 ");
+      printf("%2.0f ", value); // Print with 2 chars width, 0 decimal places
     }
     std::cout << "\n";
   }
 
+  // Count original nonzeros and store their positions
+  size_t originalNonZeros = 0;
+  struct NonZeroValue {
+    size_t row;
+    size_t col;
+    float value;
+  };
+  std::vector<NonZeroValue> originalValues;
+
+  for (size_t i = 0; i < rows; i++) {
+    for (size_t block = testMatrix.getBcsrRowPtrHost()[i / MMA_M];
+         block < testMatrix.getBcsrRowPtrHost()[i / MMA_M + 1]; block++) {
+      int blockCol = testMatrix.getBcsrColIdxHost()[block];
+      for (size_t subRow = 0;
+           subRow < MMA_M && (i / MMA_M * MMA_M + subRow) < rows; subRow++) {
+        for (size_t subCol = 0; subCol < MMA_K && (blockCol + subCol) < cols;
+             subCol++) {
+          float val = __half2float(
+              testMatrix.getBcsrValuesHost()[block * MMA_M * MMA_K +
+                                             subRow * MMA_K + subCol]);
+          if (val != 0.0f) {
+            originalNonZeros++;
+            originalValues.push_back({i / MMA_M * MMA_M + (i % MMA_M) + subRow,
+                                      (size_t)blockCol + subCol, val});
+          }
+        }
+      }
+    }
+  }
+  std::cout << "\nOriginal nonzero elements: " << originalNonZeros << std::endl;
+
   // Try blocking with size 2
   int blockSize = 2;
   std::cout << "\nTesting blocking with size " << blockSize << "...\n";
-  //   testMatrix.bcsrBlocking(blockSize);
+  testMatrix.bcsrBlocking(blockSize);
 
-  // Print merged blocks
-  // print number of merged nonzero blocks
+  // Print merged blocks and count nonzeros
   std::cout << "\nNumber of merged nonzero blocks: "
             << testMatrix.getMergedNonzeroBlocks() << "\n";
+  size_t mergedNonZeros = 0;
 
-  for (int i = 0; i < testMatrix.getMergedNonzeroBlocks(); i++) {
-    std::cout << "\nMerged Block " << i << ":\n";
+  // Only print first few blocks to avoid overwhelming output
+  const int MAX_BLOCKS_TO_PRINT = 4;
+  size_t blocks_to_print = std::min(testMatrix.getMergedNonzeroBlocks(),
+                                    (size_t)MAX_BLOCKS_TO_PRINT);
+
+  // Print row pointers for debugging
+  std::cout << "Row pointers: ";
+  for (int i = 0; i <= testMatrix.getRow() / (blockSize * MMA_M); i++) {
+    std::cout << testMatrix.getMergedBcsrRowPtrHost()[i] << " ";
+  }
+  std::cout << "\n";
+
+  for (size_t i = 0; i < blocks_to_print; i++) {
+    std::cout << "\nMerged Block " << i << " (starting at column "
+              << testMatrix.getMergedBcsrColIdxHost()[i] << "):\n";
     for (int row = 0; row < blockSize * MMA_M; row++) {
       for (int col = 0; col < blockSize * MMA_K; col++) {
         float val = __half2float(
@@ -126,40 +181,94 @@ void testBcsrBlocking() {
                                                MMA_K +
                                            row * blockSize * MMA_K + col]);
         printf("%4.1f ", val);
+        if (val != 0.0f) {
+          mergedNonZeros++;
+        }
       }
       std::cout << "\n";
     }
   }
 
+  // Continue counting nonzeros for remaining blocks
+  for (size_t i = blocks_to_print; i < testMatrix.getMergedNonzeroBlocks();
+       i++) {
+    for (int j = 0; j < blockSize * blockSize * MMA_M * MMA_K; j++) {
+      if (__half2float(testMatrix.getMergedBcsrValuesHost()
+                           [i * blockSize * blockSize * MMA_M * MMA_K + j]) !=
+          0.0f) {
+        mergedNonZeros++;
+      }
+    }
+  }
+
+  std::cout << "\nMerged nonzero elements: " << mergedNonZeros << std::endl;
+  std::cout << "Storage efficiency: "
+            << (float)originalNonZeros / mergedNonZeros * 100 << "% ("
+            << originalNonZeros << "/" << mergedNonZeros << ")\n";
+
   // Verify that all original non-zero values are present in merged blocks
   bool allValuesFound = true;
-  for (int row = 0; row < 8; row++) {
-    for (int origBlock = testMatrix.getBcsrRowPtrHost()[row / MMA_M];
-         origBlock < testMatrix.getBcsrRowPtrHost()[row / MMA_M + 1];
-         origBlock++) {
+  for (const auto &originalValue : originalValues) {
+    bool found = false;
+    size_t row = originalValue.row;
+    size_t col = originalValue.col;
+    float val = originalValue.value;
 
-      int col = testMatrix.getBcsrColIdxHost()[origBlock];
-      float val = __half2float(
-          testMatrix
-              .getBcsrValuesHost()[origBlock * MMA_M * MMA_K +
-                                   (row % MMA_M) * MMA_K + (col % MMA_K)]);
+    //     std::cout << "\nLooking for value " << val << " at (" << row << ","
+    //     << col
+    //               << ")\n";
 
-      if (val != 0.0f) {
-        bool found = false;
-        // Search in merged blocks
-        for (int mergedBlock = 0;
-             mergedBlock < testMatrix.getMergedNonzeroBlocks(); mergedBlock++) {
-          // Check if value is present in this merged block
-          // ... (add check here)
-          if (found)
-            break;
-        }
-        if (!found) {
-          std::cout << "Value at (" << row << "," << col
-                    << ") not found in merged blocks!\n";
-          allValuesFound = false;
+    // Search in merged blocks
+    for (size_t mergedBlock = 0;
+         mergedBlock < testMatrix.getMergedNonzeroBlocks() && !found;
+         mergedBlock++) {
+
+      int blockStartCol = testMatrix.getMergedBcsrColIdxHost()[mergedBlock];
+
+      // Find which row contains this block by searching through row pointers
+      int rowIdx = 0;
+      while (rowIdx < testMatrix.getRow() / (blockSize * MMA_M) &&
+             testMatrix.getMergedBcsrRowPtrHost()[rowIdx + 1] <= mergedBlock) {
+        rowIdx++;
+      }
+      int blockStartRow = rowIdx * blockSize * MMA_M;
+
+      //  std::cout << "  Checking block " << mergedBlock << " starting at ("
+      //            << blockStartRow << "," << blockStartCol << ")\n";
+
+      // Check if this block could contain our value
+      if (blockStartCol <= col && col < blockStartCol + blockSize * MMA_K &&
+          blockStartRow <= row && row < blockStartRow + blockSize * MMA_M) {
+
+        // Calculate position within merged block
+        size_t relRow = row - blockStartRow;
+        size_t relCol = col - blockStartCol;
+
+        size_t offset =
+            mergedBlock * blockSize * blockSize * MMA_M * MMA_K +
+            (relRow / MMA_M) * (blockSize * MMA_K * MMA_M) + // block row offset
+            (relRow % MMA_M) * MMA_K +           // within block row offset
+            (relCol / MMA_K) * (MMA_K * MMA_M) + // block col offset
+            (relCol % MMA_K);
+
+        float mergedVal =
+            __half2float(testMatrix.getMergedBcsrValuesHost()[offset]);
+
+        //    std::cout << "    Found value " << mergedVal
+        //              << " at relative position (" << relRow << "," << relCol
+        //              << ") offset " << offset << "\n";
+
+        if (std::abs(mergedVal - val) < 1e-5) {
+          found = true;
+          break;
         }
       }
+    }
+
+    if (!found) {
+      //  std::cout << "Value " << val << " at (" << row << "," << col
+      //            << ") not found in merged blocks!\n";
+      allValuesFound = false;
     }
   }
 
@@ -167,7 +276,6 @@ void testBcsrBlocking() {
     std::cout << "All values successfully found in merged blocks!\n";
   }
 }
-
 // DEFINE_string(filename, "./src/matrices/suitesparse/mip1/mip1.mtx",
 //               "input .mtx file");
 
