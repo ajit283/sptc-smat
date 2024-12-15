@@ -95,23 +95,28 @@ void testBcsrBlocking() {
 
   std::cout << "\nOriginal matrix pattern (showing first " << display_rows
             << "x" << display_cols << "):\n";
+  testMatrix.makeDenseArray();
+  testMatrix.moveToHost();
+
   for (size_t i = 0; i < display_rows; i++) {
     for (size_t j = 0; j < display_cols; j++) {
-      float value = 0.0f;
-      for (int k = testMatrix.getBcsrRowPtrHost()[i / MMA_M];
-           k < testMatrix.getBcsrRowPtrHost()[i / MMA_M + 1]; k++) {
-        if (testMatrix.getBcsrColIdxHost()[k] <= j &&
-            j < testMatrix.getBcsrColIdxHost()[k] + MMA_K) {
-          float val = __half2float(
-              testMatrix
-                  .getBcsrValuesHost()[k * MMA_M * MMA_K + (i % MMA_M) * MMA_K +
-                                       (j % MMA_K)]);
-          if (val != 0.0f) {
-            value = val;
-            break;
-          }
-        }
-      }
+      // float value = 0.0f;
+      // for (int k = testMatrix.getBcsrRowPtrHost()[i / MMA_M];
+      //      k < testMatrix.getBcsrRowPtrHost()[i / MMA_M + 1]; k++) {
+      //   if (testMatrix.getBcsrColIdxHost()[k] <= j &&
+      //       j < testMatrix.getBcsrColIdxHost()[k] + MMA_K) {
+      //     float val = __half2float(
+      //         testMatrix
+      //             .getBcsrValuesHost()[k * MMA_M * MMA_K + (i % MMA_M) *
+      //             MMA_K +
+      //                                  (j % MMA_K)]);
+      //     if (val != 0.0f) {
+      //       value = val;
+      //       break;
+      //     }
+      //   }
+      // }
+      float value = testMatrix.getHostPtr()[i * testMatrix.getCol() + j];
       printf("%2.0f ", value); // Print with 2 chars width, 0 decimal places
     }
     std::cout << "\n";
@@ -159,7 +164,7 @@ void testBcsrBlocking() {
   size_t mergedNonZeros = 0;
 
   // Only print first few blocks to avoid overwhelming output
-  const int MAX_BLOCKS_TO_PRINT = 4;
+  const int MAX_BLOCKS_TO_PRINT = 40;
   size_t blocks_to_print = std::min(testMatrix.getMergedNonzeroBlocks(),
                                     (size_t)MAX_BLOCKS_TO_PRINT);
 
@@ -170,16 +175,50 @@ void testBcsrBlocking() {
   }
   std::cout << "\n";
 
+  std::cout << "\nOriginal matrix pattern (showing first " << display_rows
+            << "x" << display_cols << "):\n";
+  testMatrix.makeDenseArray();
+  testMatrix.moveToHost();
+
+  for (size_t i = 0; i < display_rows; i++) {
+    for (size_t j = 0; j < display_cols; j++) {
+
+      float value = testMatrix.getHostPtr()[i * testMatrix.getCol() + j];
+      printf("%2.0f ", value); // Print with 2 chars width, 0 decimal places
+    }
+    std::cout << "\n";
+  }
+  std::cout << "\n";
+
+  // print merged colidx and rowptr
+  std::cout << "\n";
+  for (size_t i = 0; i < testMatrix.getMergedNonzeroBlocks(); i++) {
+    std::cout << "Merged ColIdx: " << testMatrix.getMergedBcsrColIdxHost()[i]
+              << "\n";
+  }
+  for (size_t i = 0; i < testMatrix.getMergedNonzeroBlocks(); i++) {
+    std::cout << "Merged RowPtr: " << testMatrix.getMergedBcsrRowPtrHost()[i]
+              << "\n";
+  }
+
   for (size_t i = 0; i < blocks_to_print; i++) {
     std::cout << "\nMerged Block " << i << " (starting at column "
               << testMatrix.getMergedBcsrColIdxHost()[i] << "):\n";
     for (int row = 0; row < blockSize * MMA_M; row++) {
       for (int col = 0; col < blockSize * MMA_K; col++) {
         float val = __half2float(
-            testMatrix
-                .getMergedBcsrValuesHost()[i * blockSize * blockSize * MMA_M *
-                                               MMA_K +
-                                           row * blockSize * MMA_K + col]);
+            testMatrix.getMergedBcsrValuesHost()
+                [i * blockSize * blockSize * MMA_M * MMA_K +
+                 +(row / MMA_M) * blockSize * MMA_K * MMA_M +
+                 (col / (MMA_M)) * MMA_M * MMA_K + (col % (MMA_K)) +
+                 ((row % MMA_M) * MMA_K)]); // which small block
+
+        // float val =
+        //     __half2float(testMatrix.getMergedBcsrValuesHost()
+        //                      [i * blockSize * blockSize * MMA_M * MMA_K +
+        //                       row * blockSize * MMA_K * MMA_M + col]);
+
+        //  row * blockSize * MMA_K + col]);
         printf("%4.1f ", val);
         if (val != 0.0f) {
           mergedNonZeros++;

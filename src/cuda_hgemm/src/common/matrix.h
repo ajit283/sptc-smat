@@ -646,7 +646,7 @@ public:
     std::vector<half> values;
 
     // Initialize rowPtr
-    rowPtr.push_back(0);
+    // rowPtr.push_back(0);
     int currentRow = -1;
 
     // Build BCSR format
@@ -667,7 +667,7 @@ public:
     }
 
     // Add final rowPtr entry
-    rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
 
     mergedNonzeroBlocks = blocks.size();
 
