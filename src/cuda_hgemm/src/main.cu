@@ -2,6 +2,8 @@
 #include "omp.h"
 #include "tester.h"
 
+#define BLOCK 2
+
 #define HGEMM_FUNC(name)                                                       \
   void name(half *A, half *B, half *C, size_t M, size_t N, size_t K)
 #define HGEMM_FUNC_SPARSE(name)                                                \
@@ -32,6 +34,7 @@ HGEMM_FUNC_SPARSE2(mmaBKernel);
 HGEMM_FUNC_SPARSE2(mmaBTKernel);
 HGEMM_FUNC_SPARSE2(mmaCBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel);
+HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel);
 
 void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
@@ -42,12 +45,12 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
 // DEFINE_uint32(M, 16384, "M");
 // DEFINE_uint32(N, 16384, "N");
 // DEFINE_uint32(K, 16384, "K");
-DEFINE_uint32(M, 121192, "M");
-DEFINE_uint32(N, 121192, "N");
-DEFINE_uint32(K, 121192, "K");
-// DEFINE_uint32(M, 2048, "M");
-// DEFINE_uint32(N, 2048, "N");
-// DEFINE_uint32(K, 2048, "K");
+// DEFINE_uint32(M, 121192, "M");
+// DEFINE_uint32(N, 121192, "N");
+// DEFINE_uint32(K, 121192, "K");
+DEFINE_uint32(M, 1024, "M");
+DEFINE_uint32(N, 1024, "N");
+DEFINE_uint32(K, 1024, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -60,10 +63,10 @@ DEFINE_bool(enable_check, false,
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
 DEFINE_uint32(n_mult, 8, "n_mult * MMA_N = N");
-// DEFINE_string(filename,
-//               "./src/matrices/2_4_sparse_matrices/"
-//               "2_4_sparse_mtx_1024.mtx",
-//               "input .mtx file");
+DEFINE_string(filename,
+              "./src/matrices/2_4_sparse_matrices/"
+              "2_4_sparse_mtx_1024.mtx",
+              "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_2048_0.1000.mtx",
@@ -75,8 +78,8 @@ DEFINE_uint32(n_mult, 8, "n_mult * MMA_N = N");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_4_times/band_mtx_1024_512.mtx",
 //               "input .mtx file");
-DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
-              "input .mtx file");
+// DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
+//               "input .mtx file");
 
 void testBcsrBlocking() {
   SparseMatrix testMatrix(
@@ -154,9 +157,9 @@ void testBcsrBlocking() {
   std::cout << "\nOriginal nonzero elements: " << originalNonZeros << std::endl;
 
   // Try blocking with size 2
-  int blockSize = 2;
-  std::cout << "\nTesting blocking with size " << blockSize << "...\n";
-  testMatrix.bcsrBlocking(blockSize);
+  // int blockSize = 2;
+  std::cout << "\nTesting blocking" << std::endl;
+  testMatrix.bcsrBlocking();
 
   // Print merged blocks and count nonzeros
   std::cout << "\nNumber of merged nonzero blocks: "
@@ -170,7 +173,7 @@ void testBcsrBlocking() {
 
   // Print row pointers for debugging
   std::cout << "Row pointers: ";
-  for (int i = 0; i <= testMatrix.getRow() / (blockSize * MMA_M); i++) {
+  for (int i = 0; i <= testMatrix.getRow() / (BLOCK * MMA_M); i++) {
     std::cout << testMatrix.getMergedBcsrRowPtrHost()[i] << " ";
   }
   std::cout << "\n";
@@ -204,12 +207,12 @@ void testBcsrBlocking() {
   for (size_t i = 0; i < blocks_to_print; i++) {
     std::cout << "\nMerged Block " << i << " (starting at column "
               << testMatrix.getMergedBcsrColIdxHost()[i] << "):\n";
-    for (int row = 0; row < blockSize * MMA_M; row++) {
-      for (int col = 0; col < blockSize * MMA_K; col++) {
+    for (int row = 0; row < BLOCK * MMA_M; row++) {
+      for (int col = 0; col < BLOCK * MMA_K; col++) {
         float val = __half2float(
             testMatrix.getMergedBcsrValuesHost()
-                [i * blockSize * blockSize * MMA_M * MMA_K +
-                 +(row / MMA_M) * blockSize * MMA_K * MMA_M +
+                [i * BLOCK * BLOCK * MMA_M * MMA_K +
+                 +(row / MMA_M) * BLOCK * MMA_K * MMA_M +
                  (col / (MMA_M)) * MMA_M * MMA_K + (col % (MMA_K)) +
                  ((row % MMA_M) * MMA_K)]); // which small block
 
@@ -228,13 +231,39 @@ void testBcsrBlocking() {
     }
   }
 
+  size_t numColRegions =
+      (testMatrix.getCol() + (MMA_K * BLOCK) - 1) / (MMA_K * BLOCK);
+  size_t numRowRegions =
+      (testMatrix.getRow() + (MMA_M * BLOCK) - 1) / (MMA_M * BLOCK);
+
+  // Get pointers to the arrays
+  int *blockInfo = testMatrix.getMergedBlockInfo_host();
+  int *relativeMapping = testMatrix.getMergedRelativeBlockIndexMapping_host();
+
+  // Print mergedBlockInfo
+  std::cout << "Merged Block Info:" << std::endl;
+  for (size_t i = 0; i < numRowRegions; i++) {
+    for (size_t j = 0; j < numColRegions; j++) {
+      std::cout << blockInfo[i * numColRegions + j] << " ";
+    }
+    std::cout << std::endl;
+  }
+
+  // Print mergedRelativeBlockIndexMapping
+  std::cout << "\nMerged Relative Block Index Mapping:" << std::endl;
+  for (size_t i = 0; i < numRowRegions; i++) {
+    for (size_t j = 0; j < numColRegions; j++) {
+      std::cout << relativeMapping[i * numColRegions + j] << " ";
+    }
+    std::cout << std::endl;
+  }
+
   // Continue counting nonzeros for remaining blocks
   for (size_t i = blocks_to_print; i < testMatrix.getMergedNonzeroBlocks();
        i++) {
-    for (int j = 0; j < blockSize * blockSize * MMA_M * MMA_K; j++) {
+    for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
       if (__half2float(testMatrix.getMergedBcsrValuesHost()
-                           [i * blockSize * blockSize * MMA_M * MMA_K + j]) !=
-          0.0f) {
+                           [i * BLOCK * BLOCK * MMA_M * MMA_K + j]) != 0.0f) {
         mergedNonZeros++;
       }
     }
@@ -266,26 +295,26 @@ void testBcsrBlocking() {
 
       // Find which row contains this block by searching through row pointers
       int rowIdx = 0;
-      while (rowIdx < testMatrix.getRow() / (blockSize * MMA_M) &&
+      while (rowIdx < testMatrix.getRow() / (BLOCK * MMA_M) &&
              testMatrix.getMergedBcsrRowPtrHost()[rowIdx + 1] <= mergedBlock) {
         rowIdx++;
       }
-      int blockStartRow = rowIdx * blockSize * MMA_M;
+      int blockStartRow = rowIdx * BLOCK * MMA_M;
 
       //  std::cout << "  Checking block " << mergedBlock << " starting at ("
       //            << blockStartRow << "," << blockStartCol << ")\n";
 
       // Check if this block could contain our value
-      if (blockStartCol <= col && col < blockStartCol + blockSize * MMA_K &&
-          blockStartRow <= row && row < blockStartRow + blockSize * MMA_M) {
+      if (blockStartCol <= col && col < blockStartCol + BLOCK * MMA_K &&
+          blockStartRow <= row && row < blockStartRow + BLOCK * MMA_M) {
 
         // Calculate position within merged block
         size_t relRow = row - blockStartRow;
         size_t relCol = col - blockStartCol;
 
         size_t offset =
-            mergedBlock * blockSize * blockSize * MMA_M * MMA_K +
-            (relRow / MMA_M) * (blockSize * MMA_K * MMA_M) + // block row offset
+            mergedBlock * BLOCK * BLOCK * MMA_M * MMA_K +
+            (relRow / MMA_M) * (BLOCK * MMA_K * MMA_M) + // block row offset
             (relRow % MMA_M) * MMA_K +           // within block row offset
             (relCol / MMA_K) * (MMA_K * MMA_M) + // block col offset
             (relCol % MMA_K);
@@ -387,9 +416,9 @@ int main(int argc, char *argv[]) {
 
   std::string file(FLAGS_filename);
   HLOG("Input .mtx: %s", file.data());
-  //   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
-  //                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-  //                 FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
+  // Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
+  //               FLAGS_profiling_iterations, FLAGS_sleep_duration,
+  //               FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
   //   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   //   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
@@ -401,7 +430,8 @@ int main(int argc, char *argv[]) {
   //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  //   tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
 
   //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
   //                             "Mma-OBTS-Kernel");

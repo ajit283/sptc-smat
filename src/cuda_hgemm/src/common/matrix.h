@@ -16,6 +16,8 @@
 #define MMA_N 1
 #define MMA_K 2
 
+#define BLOCK 2
+
 class Matrix {
 public:
   Matrix(size_t row, size_t col, std::string name = "Matrix", float min = -1.0,
@@ -181,7 +183,7 @@ public:
                                         cudaMemcpyHostToDevice));
 
     csrToBcsr();
-    bcsrBlocking(2);
+    bcsrBlocking();
     // csrToBcsrKnapsacking();
     HLOG("Finished creating BCSR from CSR");
     HLOG("%zu total blocks, %zu nonzero blocks, %zu dense blocks, %zu sparse "
@@ -237,6 +239,26 @@ public:
       HGEMM_CHECK_CUDART_ERROR(cudaFree((void *)m_dev_ptr));
       m_dev_ptr = nullptr;
     }
+
+    if (mergedBlockInfo_host) {
+      free(mergedBlockInfo_host);
+      mergedBlockInfo_host = nullptr;
+    }
+
+    if (mergedRelativeBlockIndexMapping_host) {
+      free(mergedRelativeBlockIndexMapping_host);
+      mergedRelativeBlockIndexMapping_host = nullptr;
+    }
+
+    if (mergedBlockInfo_dev) {
+      HGEMM_CHECK_CUDART_ERROR(cudaFree(mergedBlockInfo_dev));
+      mergedBlockInfo_dev = nullptr;
+    }
+
+    if (mergedRelativeBlockIndexMapping_dev) {
+      HGEMM_CHECK_CUDART_ERROR(cudaFree(mergedRelativeBlockIndexMapping_dev));
+      mergedRelativeBlockIndexMapping_dev = nullptr;
+    }
   }
 
   size_t getRow() { return m_row; }
@@ -279,6 +301,19 @@ public:
   half *getMergedBcsrValuesHost() { return mergedBcsrVal_host; }
   int *getMergedBcsrRowPtrHost() { return mergedBcsrRowPtr_host; }
   int *getMergedBcsrColIdxHost() { return mergedBcsrColIdx_host; }
+
+  // Add new getter methods
+  int *getMergedRelativeBlockIndexMapping_dev() {
+    return mergedRelativeBlockIndexMapping_dev;
+  }
+
+  int *getMergedRelativeBlockIndexMapping_host() {
+    return mergedRelativeBlockIndexMapping_host;
+  }
+
+  int *getMergedBlockInfo_dev() { return mergedBlockInfo_dev; }
+
+  int *getMergedBlockInfo_host() { return mergedBlockInfo_host; }
 
   size_t getMergedNonzeroBlocks() { return mergedNonzeroBlocks; }
 
@@ -519,7 +554,7 @@ public:
     // not needed for now
   }
 
-  void bcsrBlocking(int blockSize) {
+  void bcsrBlocking() {
     struct Block {
       int x;
       int y;
@@ -530,6 +565,12 @@ public:
     blocks.reserve(size);
 
     std::cout << "Starting with size: " << size << std::endl;
+
+    size_t numColRegions = (m_col + (MMA_K * BLOCK) - 1) / (MMA_K * BLOCK);
+    size_t numRowRegions = (m_row + (MMA_M * BLOCK) - 1) / (MMA_M * BLOCK);
+
+    std::vector<std::vector<int>> mergedBlockInfo(
+        numRowRegions, std::vector<int>(numColRegions, 0));
 
     for (int i = 0; i < size; i++) {
       std::cout << "Processing i=" << i << std::endl;
@@ -551,8 +592,8 @@ public:
       int col = bcsrColIdx_host[i];
       std::cout << "Col is: " << col << std::endl;
 
-      int aligned_x = col - (col % (blockSize * MMA_K));
-      int aligned_y = row - (row % (blockSize * MMA_M));
+      int aligned_x = col - (col % (BLOCK * MMA_K));
+      int aligned_y = row - (row % (BLOCK * MMA_M));
       bool partOfPreviousBlock = false;
       // check if there is a previous block that this would be part of
       for (auto e : blocks) {
@@ -569,12 +610,12 @@ public:
             std::cout << "Position x: " << positionInBlock_x << std::endl;
             std::cout << "Position y: " << positionInBlock_y << std::endl;
             std::cout << "Dest offset: "
-                      << MMA_K * blockSize * positionInBlock_y +
+                      << MMA_K * BLOCK * positionInBlock_y +
                              positionInBlock_x * MMA_M
                       << std::endl;
             std::cout << "Source offset: " << i * MMA_M * MMA_K << std::endl;
 
-            memcpy(e.vals + MMA_K * blockSize * positionInBlock_y +
+            memcpy(e.vals + MMA_K * BLOCK * positionInBlock_y +
                        positionInBlock_x * MMA_M,
                    bcsrVal_host + i * MMA_M * MMA_K,
                    sizeof(half) * MMA_M * MMA_K);
@@ -583,7 +624,7 @@ public:
             for (int j = 0; j < 5; j++) {
               std::cout << "Value at " << j << ": "
                         << __half2float(
-                               e.vals[MMA_K * blockSize * positionInBlock_y +
+                               e.vals[MMA_K * BLOCK * positionInBlock_y +
                                       positionInBlock_x + j])
                         << "\n";
             }
@@ -595,20 +636,23 @@ public:
       if (!partOfPreviousBlock) {
         std::cout << "Creating new block at (" << aligned_y << "," << aligned_x
                   << ")\n";
-        int positionInBlock_x = (col % (blockSize * MMA_K));
-        int positionInBlock_y = (row % (blockSize * MMA_M));
+        int positionInBlock_x = (col % (BLOCK * MMA_K));
+        int positionInBlock_y = (row % (BLOCK * MMA_M));
         std::cout << "Position in block: (" << positionInBlock_y << ","
                   << positionInBlock_x << ")\n";
 
         half *vals =
-            (half *)calloc(blockSize * blockSize * MMA_M * MMA_K, sizeof(half));
+            (half *)calloc(BLOCK * BLOCK * MMA_M * MMA_K, sizeof(half));
         size_t dest_offset =
-            positionInBlock_y * MMA_K * blockSize + positionInBlock_x;
+            positionInBlock_y * MMA_K * BLOCK + positionInBlock_x;
         size_t src_offset = i * MMA_M * MMA_K;
         std::cout << "Copying " << MMA_M * MMA_K << " values from offset "
                   << src_offset << " to offset " << dest_offset << "\n";
         memcpy(vals + dest_offset, bcsrVal_host + src_offset,
                MMA_M * MMA_K * sizeof(half));
+
+        mergedBlockInfo.at(aligned_y / (BLOCK * MMA_M))
+            .at(aligned_x / (BLOCK * MMA_K)) = 1;
 
         // Print some values we just copied
         for (int j = 0; j < 5; j++) {
@@ -621,7 +665,7 @@ public:
       }
       for (int b = 0; b < blocks.size(); b++) {
         std::cout << "Block " << b << " after iteration:\n";
-        for (int j = 0; j < blockSize * blockSize * MMA_M * MMA_K; j++) {
+        for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
           std::cout << __half2float(blocks[b].vals[j]) << " ";
         }
         std::cout << "\n";
@@ -635,7 +679,7 @@ public:
     // print each block
     for (int i = 0; i < blocks.size(); i++) {
       std::cout << "Block " << i << ":\n";
-      for (int j = 0; j < blockSize * blockSize * MMA_M * MMA_K; j++) {
+      for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
         std::cout << __half2float(blocks[i].vals[j]) << " ";
       }
       std::cout << "\n";
@@ -644,6 +688,18 @@ public:
     std::vector<int> rowPtr;
     std::vector<int> colIdx;
     std::vector<half> values;
+
+    std::vector<std::vector<int>> mergedRelativeBlockIndexMapping(
+        numRowRegions, std::vector<int>(numColRegions, 0));
+
+    int relativeIndex = 0;
+
+    for (int y = 0; y < numRowRegions; y++) {
+      for (int x = 0; x < numColRegions; x++) {
+        mergedRelativeBlockIndexMapping.at(y).at(x) =
+            ((mergedBlockInfo.at(y).at(x) != 0) ? relativeIndex++ : -1);
+      }
+    }
 
     // Initialize rowPtr
     // rowPtr.push_back(0);
@@ -661,7 +717,7 @@ public:
       colIdx.push_back(blocks[i].x);
 
       // Add values
-      for (int j = 0; j < blockSize * blockSize * MMA_M * MMA_K; j++) {
+      for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
         values.push_back(blocks[i].vals[j]);
       }
     }
@@ -699,6 +755,37 @@ public:
     HGEMM_CHECK_CUDART_ERROR(
         cudaMemcpy(mergedBcsrColIdx_dev, mergedBcsrColIdx_host,
                    colIdx.size() * sizeof(int), cudaMemcpyHostToDevice));
+
+    mergedBlockInfo_host =
+        (int *)malloc(numRowRegions * numColRegions * sizeof(int));
+    mergedRelativeBlockIndexMapping_host =
+        (int *)malloc(numRowRegions * numColRegions * sizeof(int));
+
+    // Copy from vectors to flat arrays
+    for (size_t i = 0; i < numRowRegions; i++) {
+      for (size_t j = 0; j < numColRegions; j++) {
+        mergedBlockInfo_host[i * numColRegions + j] = mergedBlockInfo[i][j];
+        mergedRelativeBlockIndexMapping_host[i * numColRegions + j] =
+            mergedRelativeBlockIndexMapping[i][j];
+      }
+    }
+
+    // Allocate device memory
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&mergedBlockInfo_dev,
+                   numRowRegions * numColRegions * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&mergedRelativeBlockIndexMapping_dev,
+                   numRowRegions * numColRegions * sizeof(int)));
+
+    // Copy to device
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
+        mergedBlockInfo_dev, mergedBlockInfo_host,
+        numRowRegions * numColRegions * sizeof(int), cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
+        mergedRelativeBlockIndexMapping_dev,
+        mergedRelativeBlockIndexMapping_host,
+        numRowRegions * numColRegions * sizeof(int), cudaMemcpyHostToDevice));
 
     // Free block memory
     for (auto &block : blocks) {
@@ -928,6 +1015,12 @@ private:
   int *mergedBcsrColIdx_dev = nullptr;
 
   size_t mergedNonzeroBlocks = 0;
+
+  int *mergedBlockInfo_host = nullptr;
+  int *mergedRelativeBlockIndexMapping_host = nullptr;
+
+  int *mergedBlockInfo_dev = nullptr;
+  int *mergedRelativeBlockIndexMapping_dev = nullptr;
 
   half *csrVal_dev = nullptr;
   int *csrRowPtr_dev = nullptr;
