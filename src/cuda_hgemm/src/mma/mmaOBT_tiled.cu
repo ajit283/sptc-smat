@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "logging_cuda.h"
 
 #define MMA_M 16
 #define MMA_N 8
@@ -17,6 +18,15 @@
 
 #define BLOCK 2
 
+__device__ void check_nan_half2(const char *location, half2 val, int thread_id,
+                                int block_id) {
+  if (__hisnan(val.x) || __hisnan(val.y)) {
+    // printf("WARNING: NaN detected in %s [Thread %d, Block %d]: (%f, %f)\n",
+    //        location, thread_id, block_id, __half2float(val.x),
+    //        __half2float(val.y));
+  }
+}
+
 __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
                                          int *bcsrColIdxA, half *B, half *C,
                                          size_t M, size_t N, size_t K,
@@ -25,8 +35,8 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
   // mmaCBTKernel
   const size_t K_tiles = div_ceil(K, MMA_K);
 
-  const size_t warp_row = blockIdx.y * MMA_M * BLOCK * BLOCK;
-  const size_t warp_col = blockIdx.x * MMA_N * BLOCK * BLOCK;
+  const size_t warp_row = blockIdx.y * MMA_M * BLOCK;
+  const size_t warp_col = blockIdx.x * MMA_N * BLOCK;
 
   const size_t warp_id =
       ((threadIdx.y / WARP_SIZE) * BLOCK) + ((threadIdx.x / WARP_SIZE) % BLOCK);
@@ -39,7 +49,11 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
   size_t colRegions = (K + MMA_K - 1) / (MMA_K);
 
-  if (warp_row >= M || warp_col >= N) {
+  // if (warp_row >= M || warp_col >= N) {
+  //   return;
+  // }
+
+  if (warp_row + warp_id_y * MMA_M >= M || warp_col + warp_id_x * MMA_N >= N) {
     return;
   }
 
@@ -70,7 +84,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       size_t B_size = MMA_N * MMA_K * sizeof(half);
 
       cuda::memcpy_async(
-          ((int4 *)(&A_smem[stage][warp_id_y * MMA_M * (lane_id / 2)]
+          ((int4 *)(&A_smem[stage][warp_id_y * MMA_M + (lane_id / 2)]
                            [warp_id_x * MMA_K]) +
            lane_id % 2),
           (((int4 *)(&bcsrValuesA
@@ -82,7 +96,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       // For matrix B
       if (lane_id < MMA_N * 2) { // Original condition preserved
         cuda::memcpy_async(
-            ((int4 *)(&B_smem[stage][warp_id_y * MMA_N * (lane_id / 2)]
+            ((int4 *)(&B_smem[stage][warp_id_y * MMA_N + (lane_id / 2)]
                              [warp_id_x * MMA_K]) +
              lane_id % 2),
             ((int4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
@@ -97,6 +111,11 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
   uint32_t RC[2] = {0, 0};
   int stage = 0;
+  if (threadIdx.x == 0 && threadIdx.y == 0) {
+    printf("Block %d,%d: rowPtr[%d]=%d, rowPtr[%d+1]=%d\n", blockIdx.x,
+           blockIdx.y, (int)blockRow, bcsrRowPtrA[blockRow], (int)blockRow,
+           bcsrRowPtrA[blockRow + 1]);
+  }
 #pragma unroll
   for (size_t ptr = bcsrRowPtrA[blockRow]; ptr < bcsrRowPtrA[blockRow + 1];
        ptr++) {
@@ -112,12 +131,27 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
                 A_smem_lane_addr);
 
     uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-        &B_smem[stage][warp_id_y * MMA_N * lane_id % 8]
-               [warp_id_x * MMA_K * ((lane_id / 8) % 2) * 8]);
+        &B_smem[stage][warp_id_y * MMA_N + lane_id % 8]
+               [warp_id_x * MMA_K + ((lane_id / 8) % 2) * 8]);
     LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
 
     HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
               RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
+
+    half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
+    half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
+    if (lane_id == 0) { // Only check one thread per warp
+      check_nan_half2("RC[0]", *rc0_ptr, threadIdx.x, blockIdx.x);
+      check_nan_half2("RC[1]", *rc1_ptr, threadIdx.x, blockIdx.x);
+    }
+
+    if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
+      half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
+      half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
+      printf("RC values: (%f,%f) (%f,%f)\n", __half2float(rc0_ptr->x),
+             __half2float(rc0_ptr->y), __half2float(rc1_ptr->x),
+             __half2float(rc1_ptr->y));
+    }
 
     __syncthreads();
 
@@ -157,7 +191,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       // }
 
       cuda::memcpy_async(
-          ((int4 *)(&A_smem[stage][warp_id_y * MMA_M * (lane_id / 2)]
+          ((int4 *)(&A_smem[stage][warp_id_y * MMA_M + (lane_id / 2)]
                            [warp_id_x * MMA_K]) +
            lane_id % 2),
           (((int4 *)(&bcsrValuesA
@@ -169,7 +203,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       // For matrix B
       if (lane_id < MMA_N * 2) { // Original condition preserved
         cuda::memcpy_async(
-            ((int4 *)(&B_smem[stage][warp_id_y * MMA_N * (lane_id / 2)]
+            ((int4 *)(&B_smem[stage][warp_id_y * MMA_N + (lane_id / 2)]
                              [warp_id_x * MMA_K]) +
              lane_id % 2),
             ((int4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
@@ -193,10 +227,98 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
   __syncthreads();
   // figure this out
-  if (lane_id < MMA_M && warp_id) {
-    for (int bl = 0; bl < BLOCK; bl++) {
-      *((int4 *)(&C[(warp_row + lane_id) * N + warp_col])) +=
-          *((int4 *)(&C_smem[(bl * MMA_M) * lane_id][0]));
+
+  const size_t warp_row_c = blockIdx.y * MMA_M * BLOCK;
+  const size_t warp_col_c = blockIdx.x * MMA_N * BLOCK;
+
+  for (int bl_y = 0; bl_y < BLOCK; bl_y++) {
+    for (int bl_x = 0; bl_x < BLOCK; bl_x++) {
+      if (lane_id < MMA_M) {
+        // *((int4 *)(&C[(warp_row_c + lane_id) * N + warp_col_c])) +=
+        //     *((int4 *)(&C_smem[(bl_y * MMA_M) * lane_id][bl_x * MMA_N]));
+        // if (warp_row_c + bl_y * MMA_M + lane_id >= M ||
+        //     warp_col_c + bl_x * MMA_N + 8 > N) {
+        //   continue; // Skip this block
+        // }
+        // // Get pointers to the source and destination data
+        // const half2 *src_ptr = reinterpret_cast<const half2 *>(
+        //     &C_smem[(bl_y * MMA_M) + lane_id][bl_x * MMA_N]);
+        DEBUG_EXECUTE_ON_THREAD(
+            0, printf("Pre-check: M=%lu, N=%lu\n", (unsigned long)M,
+                      (unsigned long)N);
+            printf("Checking bounds: row=%lu, col=%lu\n",
+                   (unsigned long)(warp_row_c + bl_y * MMA_M + lane_id),
+                   (unsigned long)(warp_col_c + bl_x * MMA_N + 8)););
+
+        // Bounds check
+        if (warp_row_c + bl_y * MMA_M + lane_id >= M ||
+            warp_col_c + bl_x * MMA_N + 8 > N) {
+          continue;
+        }
+
+        size_t row = warp_row_c + bl_y * MMA_M + lane_id;
+        size_t col = warp_col_c + bl_x * MMA_N;
+
+        const half2 *src_ptr = reinterpret_cast<const half2 *>(
+            &C_smem[(bl_y * MMA_M) + lane_id][bl_x * MMA_N]);
+        half2 *dst_ptr = reinterpret_cast<half2 *>(&C[row * N + col]);
+
+        DEBUG_EXECUTE_ON_THREAD(
+            0, printf("Row=%lu, Col=%lu, Offset=%lu\n", (unsigned long)row,
+                      (unsigned long)col, (unsigned long)(row * N + col)););
+        // half2 *dst_ptr = reinterpret_cast<half2 *>(
+        //     &C[(warp_row_c + lane_id) * N + warp_col_c]);
+        // half2 *dst_ptr = reinterpret_cast<half2 *>(
+        //     &C[(warp_row_c + bl_y * MMA_M + lane_id) * N + warp_col_c +
+        //        bl_x * MMA_N]);
+        // Load values from shared memory
+        half2 val0 = src_ptr[0];
+        half2 val1 = src_ptr[1];
+        half2 val2 = src_ptr[2];
+        half2 val3 = src_ptr[3];
+
+        // Check values from shared memory
+        check_nan_half2("C_smem[0]", val0, threadIdx.x, blockIdx.x);
+        check_nan_half2("C_smem[1]", val1, threadIdx.x, blockIdx.x);
+        check_nan_half2("C_smem[2]", val2, threadIdx.x, blockIdx.x);
+        check_nan_half2("C_smem[3]", val3, threadIdx.x, blockIdx.x);
+
+        // 3. Check global memory values before atomic updates
+        half2 old_val0 = dst_ptr[0];
+        check_nan_half2("C_global pre-atomic", old_val0, threadIdx.x,
+                        blockIdx.x);
+
+        DEBUG_EXECUTE_ON_THREAD(
+            0,
+            printf("val0: %f %f\n", __half2float(val0.x), __half2float(val0.y));
+            printf("val1: %f %f\n", __half2float(val1.x), __half2float(val1.y));
+            printf("val2: %f %f\n", __half2float(val2.x), __half2float(val2.y));
+            printf("val3: %f %f\n", __half2float(val3.x),
+                   __half2float(val3.y)););
+
+        DEBUG_EXECUTE_ON_THREAD(
+            0, printf("Thread info: blockIdx=(%d,%d), threadIdx=%d, "
+                      "lane_id=%d, warp_id_x=%d, warp_id_y=%d\n",
+                      blockIdx.x, blockIdx.y, threadIdx.x, (int)lane_id,
+                      (int)warp_id_x, (int)warp_id_y);
+            printf("Output indices: warp_row_c=%lu, bl_y=%d, lane_id=%d, "
+                   "N=%lu, warp_col_c=%lu, bl_x=%d\n",
+                   (unsigned long)warp_row_c, bl_y, lane_id, (unsigned long)N,
+                   (unsigned long)warp_col_c, bl_x););
+
+        DEBUG_EXECUTE_ON_THREAD(0, printf("C base: %p, dst_ptr: %p\n",
+                                          (void *)C, (void *)dst_ptr););
+
+        // Perform atomic additions for each half-precision float value
+        atomicAdd(&dst_ptr[0].x, val0.x);
+        atomicAdd(&dst_ptr[0].y, val0.y);
+        atomicAdd(&dst_ptr[1].x, val1.x);
+        atomicAdd(&dst_ptr[1].y, val1.y);
+        atomicAdd(&dst_ptr[2].x, val2.x);
+        atomicAdd(&dst_ptr[2].y, val2.y);
+        atomicAdd(&dst_ptr[3].x, val3.x);
+        atomicAdd(&dst_ptr[3].y, val3.y);
+      }
     }
   }
 }

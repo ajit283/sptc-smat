@@ -48,9 +48,12 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
 // DEFINE_uint32(M, 121192, "M");
 // DEFINE_uint32(N, 121192, "N");
 // DEFINE_uint32(K, 121192, "K");
-DEFINE_uint32(M, 1024, "M");
-DEFINE_uint32(N, 1024, "N");
-DEFINE_uint32(K, 1024, "K");
+// DEFINE_uint32(M, 128, "M");
+// DEFINE_uint32(N, 128, "N");
+// DEFINE_uint32(K, 128, "K");
+DEFINE_uint32(M, 64, "M");
+DEFINE_uint32(N, 64, "N");
+DEFINE_uint32(K, 64, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -65,7 +68,7 @@ DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
 DEFINE_uint32(n_mult, 8, "n_mult * MMA_N = N");
 DEFINE_string(filename,
               "./src/matrices/2_4_sparse_matrices/"
-              "2_4_sparse_mtx_1024.mtx",
+              "2_4_sparse_mtx_64_0.5000.mtx",
               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
@@ -84,7 +87,7 @@ DEFINE_string(filename,
 void testBcsrBlocking() {
   SparseMatrix testMatrix(
       "TestMatrix",
-      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_8_0.5000.mtx");
+      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_64_0.5000.mtx");
 
   // Get matrix dimensions and check they're valid
   size_t rows = testMatrix.getRow();
@@ -92,7 +95,7 @@ void testBcsrBlocking() {
   std::cout << "Testing matrix of size " << rows << "x" << cols << std::endl;
 
   // Print original matrix pattern for visualization (up to 32x32)
-  const int DISPLAY_SIZE = 8;
+  const int DISPLAY_SIZE = 64;
   size_t display_rows = std::min(rows, (size_t)DISPLAY_SIZE);
   size_t display_cols = std::min(cols, (size_t)DISPLAY_SIZE);
 
@@ -416,12 +419,12 @@ int main(int argc, char *argv[]) {
 
   std::string file(FLAGS_filename);
   HLOG("Input .mtx: %s", file.data());
-  // Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
-  //               FLAGS_profiling_iterations, FLAGS_sleep_duration,
-  //               FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+  Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
+                FLAGS_profiling_iterations, FLAGS_sleep_duration,
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
-  //   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
-  //   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
+  // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
   //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
   //   //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
   //   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
@@ -430,8 +433,8 @@ int main(int argc, char *argv[]) {
   //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
 
   //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
   //                             "Mma-OBTS-Kernel");

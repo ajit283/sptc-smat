@@ -12,9 +12,9 @@
 #include "mmio_highlevel.h"
 #include <malloc.h>
 
-#define MMA_M 2
-#define MMA_N 1
-#define MMA_K 2
+#define MMA_M 16
+#define MMA_N 8
+#define MMA_K 16
 
 #define BLOCK 2
 
@@ -113,11 +113,18 @@ public:
     for (size_t i = 0; i < m_elem_num; ++i) {
       diff = static_cast<double>(std::abs(__half2float(m_host_ptr[i]) -
                                           __half2float(base->getHostPtr()[i])));
+
       m_max_diff = std::max(m_max_diff, diff);
       m_avg_diff += diff;
-      // HLOG("%f", diff);
+
+      // Print diff and values
+      printf("%.0f ", __half2float(m_host_ptr[i]));
+
+      // Add newline after every 64 values (assuming N=64)
+      if ((i + 1) % 64 == 0) {
+        printf("\n");
+      }
     }
-    // HLOG("%d", m_elem_num);
     m_avg_diff /= static_cast<double>(m_elem_num);
 
     HLOG("Max diff: %f, avg diff: %f", m_max_diff, m_avg_diff);
@@ -564,7 +571,7 @@ public:
     std::vector<Block> blocks;
     blocks.reserve(size);
 
-    std::cout << "Starting with size: " << size << std::endl;
+    // std::cout << "Starting with size: " << size << std::endl;
 
     size_t numColRegions = (m_col + (MMA_K * BLOCK) - 1) / (MMA_K * BLOCK);
     size_t numRowRegions = (m_row + (MMA_M * BLOCK) - 1) / (MMA_M * BLOCK);
@@ -573,7 +580,7 @@ public:
         numRowRegions, std::vector<int>(numColRegions, 0));
 
     for (int i = 0; i < size; i++) {
-      std::cout << "Processing i=" << i << std::endl;
+      // std::cout << "Processing i=" << i << std::endl;
 
       // int row = 0;
       // while (row < m_row / MMA_M && bcsrRowPtr_host[row + 1] <= i) {
@@ -586,11 +593,11 @@ public:
       }
       int row = blockRow * MMA_M; // Convert block row to actual row number
 
-      std::cout << "Found row: " << row << std::endl;
-      std::cout << "Accessing colIdx at " << i << std::endl;
+      // std::cout << "Found row: " << row << std::endl;
+      // std::cout << "Accessing colIdx at " << i << std::endl;
 
       int col = bcsrColIdx_host[i];
-      std::cout << "Col is: " << col << std::endl;
+      // std::cout << "Col is: " << col << std::endl;
 
       int aligned_x = col - (col % (BLOCK * MMA_K));
       int aligned_y = row - (row % (BLOCK * MMA_M));
@@ -600,20 +607,20 @@ public:
         if (e.x == aligned_x && e.y == aligned_y) {
           {
             partOfPreviousBlock = true;
-            std::cout << "col: " << col << " e.x: " << e.x
-                      << " diff: " << (col - e.x)
-                      << " mod: " << ((col - e.x) % MMA_K) << std::endl;
+            // std::cout << "col: " << col << " e.x: " << e.x
+            //           << " diff: " << (col - e.x)
+            //           << " mod: " << ((col - e.x) % MMA_K) << std::endl;
             // int positionInBlock_x = (col - e.x) - ((col - e.x) % MMA_K);
             // int positionInBlock_y = (row - e.y) - ((row - e.y) % MMA_M);
             int positionInBlock_x = (col - e.x);
             int positionInBlock_y = (row - e.y);
-            std::cout << "Position x: " << positionInBlock_x << std::endl;
-            std::cout << "Position y: " << positionInBlock_y << std::endl;
-            std::cout << "Dest offset: "
-                      << MMA_K * BLOCK * positionInBlock_y +
-                             positionInBlock_x * MMA_M
-                      << std::endl;
-            std::cout << "Source offset: " << i * MMA_M * MMA_K << std::endl;
+            // std::cout << "Position x: " << positionInBlock_x << std::endl;
+            // std::cout << "Position y: " << positionInBlock_y << std::endl;
+            // std::cout << "Dest offset: "
+            //           << MMA_K * BLOCK * positionInBlock_y +
+            //                  positionInBlock_x * MMA_M
+            //           << std::endl;
+            // std::cout << "Source offset: " << i * MMA_M * MMA_K << std::endl;
 
             memcpy(e.vals + MMA_K * BLOCK * positionInBlock_y +
                        positionInBlock_x * MMA_M,
@@ -621,33 +628,34 @@ public:
                    sizeof(half) * MMA_M * MMA_K);
 
             // Print some values we just copied
-            for (int j = 0; j < 5; j++) {
-              std::cout << "Value at " << j << ": "
-                        << __half2float(
-                               e.vals[MMA_K * BLOCK * positionInBlock_y +
-                                      positionInBlock_x + j])
-                        << "\n";
-            }
-            std::cout << "done" << std::endl;
+            // for (int j = 0; j < 5; j++) {
+            //   std::cout << "Value at " << j << ": "
+            //             << __half2float(
+            //                    e.vals[MMA_K * BLOCK * positionInBlock_y +
+            //                           positionInBlock_x + j])
+            //             << "\n";
+            // }
+            // std::cout << "done" << std::endl;
             break;
           }
         }
       }
       if (!partOfPreviousBlock) {
-        std::cout << "Creating new block at (" << aligned_y << "," << aligned_x
-                  << ")\n";
+        // std::cout << "Creating new block at (" << aligned_y << "," <<
+        // aligned_x
+        //           << ")\n";
         int positionInBlock_x = (col % (BLOCK * MMA_K));
         int positionInBlock_y = (row % (BLOCK * MMA_M));
-        std::cout << "Position in block: (" << positionInBlock_y << ","
-                  << positionInBlock_x << ")\n";
+        // std::cout << "Position in block: (" << positionInBlock_y << ","
+        //           << positionInBlock_x << ")\n";
 
         half *vals =
             (half *)calloc(BLOCK * BLOCK * MMA_M * MMA_K, sizeof(half));
         size_t dest_offset =
             positionInBlock_y * MMA_K * BLOCK + positionInBlock_x;
         size_t src_offset = i * MMA_M * MMA_K;
-        std::cout << "Copying " << MMA_M * MMA_K << " values from offset "
-                  << src_offset << " to offset " << dest_offset << "\n";
+        // std::cout << "Copying " << MMA_M * MMA_K << " values from offset "
+        //           << src_offset << " to offset " << dest_offset << "\n";
         memcpy(vals + dest_offset, bcsrVal_host + src_offset,
                MMA_M * MMA_K * sizeof(half));
 
@@ -655,35 +663,35 @@ public:
             .at(aligned_x / (BLOCK * MMA_K)) = 1;
 
         // Print some values we just copied
-        for (int j = 0; j < 5; j++) {
-          std::cout << "Value at " << j << ": "
-                    << __half2float(vals[dest_offset + j]) << "\n";
-        }
+        // for (int j = 0; j < 5; j++) {
+        //   std::cout << "Value at " << j << ": "
+        //             << __half2float(vals[dest_offset + j]) << "\n";
+        // }
 
         Block block = {aligned_x, aligned_y, vals};
         blocks.push_back(block);
       }
-      for (int b = 0; b < blocks.size(); b++) {
-        std::cout << "Block " << b << " after iteration:\n";
-        for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
-          std::cout << __half2float(blocks[b].vals[j]) << " ";
-        }
-        std::cout << "\n";
-      }
-      std::cout << "Block pointer address for block " << blocks.size() - 1
-                << ": " << (void *)blocks.back().vals << "\n";
+      // for (int b = 0; b < blocks.size(); b++) {
+      //   // std::cout << "Block " << b << " after iteration:\n";
+      //   for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
+      //     std::cout << __half2float(blocks[b].vals[j]) << " ";
+      //   }
+      //   std::cout << "\n";
+      // }
+      // std::cout << "Block pointer address for block " << blocks.size() - 1
+      //           << ": " << (void *)blocks.back().vals << "\n";
 
-      std::cout << "-----------------------------" << std::endl;
+      // std::cout << "-----------------------------" << std::endl;
     }
 
     // print each block
-    for (int i = 0; i < blocks.size(); i++) {
-      std::cout << "Block " << i << ":\n";
-      for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
-        std::cout << __half2float(blocks[i].vals[j]) << " ";
-      }
-      std::cout << "\n";
-    }
+    // for (int i = 0; i < blocks.size(); i++) {
+    //   std::cout << "Block " << i << ":\n";
+    //   for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
+    //     std::cout << __half2float(blocks[i].vals[j]) << " ";
+    //   }
+    //   std::cout << "\n";
+    // }
 
     std::vector<int> rowPtr;
     std::vector<int> colIdx;
