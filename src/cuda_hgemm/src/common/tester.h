@@ -300,7 +300,7 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse2_tiled(std::forward<Func>(hgemm), name);
+    // profileSparse2_tiled(std::forward<Func>(hgemm), name);
   }
 
   template <typename PreprocessFunc>

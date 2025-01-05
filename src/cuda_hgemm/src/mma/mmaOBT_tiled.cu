@@ -77,7 +77,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       // skip empty block
       size_t blockIndex = blockRow * colRegions + i;
 
-      if (blockIdx.y == 1 && threadIdx.x == 0) {
+      if (blockIdx.y == 3 && threadIdx.x == 0) {
         printf("BlockIndex, preload: %lu\n", blockIndex);
         printf("ptr: %lu\n", ptr);
         printf("i: %lu\n", i);
@@ -138,47 +138,51 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
     cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
 
-    __syncthreads();
+    // moving along the main axis
+    for (int i = 0; i < BLOCK; i++) {
 
-    uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-        &A_smem[stage][warp_id_y * MMA_M + (lane_id % 16)]
-               [warp_id_x * MMA_K + (lane_id / 16) * 8]);
-    LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
-                A_smem_lane_addr);
+      __syncthreads();
 
-    uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-        &B_smem[stage][warp_id_y * MMA_N + lane_id % 8]
-               [warp_id_x * MMA_K + ((lane_id / 8) % 2) * 8]);
-    LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
+      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+          &A_smem[stage][warp_id_y * MMA_M + (lane_id % 16)]
+                 [i * MMA_K + (lane_id / 16) * 8]);
+      LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
+                  A_smem_lane_addr);
 
-    {
+      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+          &B_smem[stage][warp_id_y * MMA_N + lane_id % 8]
+                 [i * MMA_K + ((lane_id / 8) % 2) * 8]);
+      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
+
+      {
+        half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
+        half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
+
+        if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
+          half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
+          half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
+          printf("RC values (before): (%f,%f) (%f,%f)\n",
+                 __half2float(rc0_ptr->x), __half2float(rc0_ptr->y),
+                 __half2float(rc1_ptr->x), __half2float(rc1_ptr->y));
+        }
+      }
+
+      HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
+                RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
+
       half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
       half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
 
       if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
         half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
         half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
-        printf("RC values (before): (%f,%f) (%f,%f)\n",
-               __half2float(rc0_ptr->x), __half2float(rc0_ptr->y),
-               __half2float(rc1_ptr->x), __half2float(rc1_ptr->y));
+        printf("RC values: (%f,%f) (%f,%f)\n", __half2float(rc0_ptr->x),
+               __half2float(rc0_ptr->y), __half2float(rc1_ptr->x),
+               __half2float(rc1_ptr->y));
       }
+
+      __syncthreads();
     }
-
-    HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
-              RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
-
-    half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
-    half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
-
-    if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
-      half2 *rc0_ptr = reinterpret_cast<half2 *>(&RC[0]);
-      half2 *rc1_ptr = reinterpret_cast<half2 *>(&RC[1]);
-      printf("RC values: (%f,%f) (%f,%f)\n", __half2float(rc0_ptr->x),
-             __half2float(rc0_ptr->y), __half2float(rc1_ptr->x),
-             __half2float(rc1_ptr->y));
-    }
-
-    __syncthreads();
 
     // Release the consumed stage.
     pipe.consumer_release();
@@ -190,11 +194,17 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
     if (stage_ptr < bcsrRowPtrA[blockRow + 1]) {
 
-      size_t i = bcsrColIdxA[stage_ptr] / MMA_K;
+      size_t i = bcsrColIdxA[stage_ptr] / (MMA_K * BLOCK);
       // skip empty block
       size_t blockIndex = blockRow * colRegions + i;
 
-      DEBUG_EXECUTE_ON_THREAD(0, printf("BlockIndex: %lu\n", blockIndex););
+      if (blockIdx.y == 3 && threadIdx.x == 0) {
+        printf("BlockIndex: %lu\n", blockIndex);
+        printf("ptr: %lu\n", ptr);
+        printf("i: %lu\n", i);
+        printf("blockRow: %lu\n", blockRow);
+        printf("colRegions: %lu\n", colRegions);
+      }
 
       size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
 
@@ -251,6 +261,19 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
   *((uint32_t *)(&C_smem[(warp_id_y * MMA_M) + (lane_id / 4 + 8)]
                         [warp_id_x * MMA_N]) +
     lane_id % 4) = RC[1];
+  __syncthreads();
+  if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
+    // print entire C_smem
+    printf(
+        "C_smem (warp_row: %lu) (warp_id_y: %lu): %.0f \n", warp_row, warp_id_y,
+        __half2float(C_smem[(warp_id_y * MMA_M) + lane_id][warp_id_x * MMA_N]));
+    for (int i = 0; i < MMA_M * BLOCK; i++) {
+      for (int j = 0; j < MMA_N * BLOCK; j++) {
+        printf("%.0f ", __half2float(C_smem[i][j]));
+      }
+      printf("\n");
+    }
+  }
 
   __syncthreads();
   // figure this out

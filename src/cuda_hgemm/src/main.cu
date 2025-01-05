@@ -51,9 +51,9 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
 // DEFINE_uint32(M, 128, "M");
 // DEFINE_uint32(N, 128, "N");
 // DEFINE_uint32(K, 128, "K");
-DEFINE_uint32(M, 64, "M");
-DEFINE_uint32(N, 64, "N");
-DEFINE_uint32(K, 64, "K");
+DEFINE_uint32(M, 128, "M");
+DEFINE_uint32(N, 128, "N");
+DEFINE_uint32(K, 128, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -65,10 +65,10 @@ DEFINE_bool(enable_check, false,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
-DEFINE_uint32(n_mult, 8, "n_mult * MMA_N = N");
+DEFINE_uint32(n_mult, 16, "n_mult * MMA_N = N");
 DEFINE_string(filename,
               "./src/matrices/2_4_sparse_matrices/"
-              "2_4_sparse_mtx_64_0.5000.mtx",
+              "2_4_sparse_mtx_128_0.5000.mtx",
               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
