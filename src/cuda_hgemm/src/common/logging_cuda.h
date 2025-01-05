@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 // Debug macro
-#define DEBUG 0 // Set to 0 to disable debug prints
+#define DEBUG 1 // Set to 0 to disable debug prints
 
 #if DEBUG
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
@@ -20,7 +20,8 @@
 #define DEBUG_EXECUTE_ON_THREAD(thread_id, code)                               \
   do {                                                                         \
     __syncthreads();                                                           \
-    if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == thread_id) {      \
+    if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == thread_id &&      \
+        threadIdx.y == 0) {                                                    \
       code                                                                     \
     }                                                                          \
   } while (0);

@@ -262,14 +262,18 @@ public:
 
     std::cout << "C[0] " << __half2float(m_C_for_sparse->getHostPtr()[0]) << " "
               << __half2float(m_C_for_sparse->getHostPtr()[1]) << std::endl;
+    m_C_for_sparse->memSetDevice();
+    m_C_for_sparse->memSetHost();
+    std::cout << "C[0] " << __half2float(m_C_for_sparse->getHostPtr()[0]) << " "
+              << __half2float(m_C_for_sparse->getHostPtr()[1]) << std::endl;
 
     // warm up
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     // m_cuda_timer.start();
     for (size_t i = 0; i < m_warmup_iterations; ++i) {
-      // m_C_for_sparse->memSetDevice();
-      // m_C_for_sparse->memSetHost();
+      m_C_for_sparse->memSetDevice();
+      m_C_for_sparse->memSetHost();
       std::cout << "NEW ITERATION";
       hgemm(
           m_A_sparse->getMergedBcsrValues(), m_A_sparse->getMergedBcsrRowPtr(),

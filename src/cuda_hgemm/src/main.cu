@@ -435,11 +435,10 @@ int main(int argc, char *argv[]) {
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
   tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
   tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  testBcsrBlocking();
 
   //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
   //                             "Mma-OBTS-Kernel");
-
-  testBcsrBlocking();
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 

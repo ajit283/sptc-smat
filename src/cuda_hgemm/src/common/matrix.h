@@ -731,6 +731,11 @@ public:
     }
 
     // Add final rowPtr entry
+    rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
     // rowPtr.push_back(blocks.size());
 
     mergedNonzeroBlocks = blocks.size();
