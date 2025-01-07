@@ -51,9 +51,9 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
 // DEFINE_uint32(M, 128, "M");
 // DEFINE_uint32(N, 128, "N");
 // DEFINE_uint32(K, 128, "K");
-DEFINE_uint32(M, 128, "M");
-DEFINE_uint32(N, 128, "N");
-DEFINE_uint32(K, 128, "K");
+DEFINE_uint32(M, 1024, "M");
+DEFINE_uint32(N, 1024, "N");
+DEFINE_uint32(K, 1024, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -68,8 +68,12 @@ DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
 DEFINE_uint32(n_mult, 16, "n_mult * MMA_N = N");
 DEFINE_string(filename,
               "./src/matrices/2_4_sparse_matrices/"
-              "2_4_sparse_mtx_128_0.5000.mtx",
+              "2_4_sparse_mtx_1024_0.4000.mtx",
               "input .mtx file");
+// DEFINE_string(filename,
+//               "./src/matrices/2_4_sparse_matrices/"
+//               "2_4_sparse_mtx_128_0.5000.mtx",
+//               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_2048_0.1000.mtx",
@@ -421,7 +425,7 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
 
   // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
@@ -435,7 +439,7 @@ int main(int argc, char *argv[]) {
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
   tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
   tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
-  testBcsrBlocking();
+  // testBcsrBlocking();
 
   //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
   //                             "Mma-OBTS-Kernel");

@@ -272,9 +272,6 @@ public:
     gettimeofday(&t1, NULL);
     // m_cuda_timer.start();
     for (size_t i = 0; i < m_warmup_iterations; ++i) {
-      m_C_for_sparse->memSetDevice();
-      m_C_for_sparse->memSetHost();
-      std::cout << "NEW ITERATION";
       hgemm(
           m_A_sparse->getMergedBcsrValues(), m_A_sparse->getMergedBcsrRowPtr(),
           m_A_sparse->getMergedBcsrColIdx(), m_B_for_sparse->getDevPtr(),
@@ -292,15 +289,10 @@ public:
 
     if (m_enable_sparse_check) {
       m_C_for_sparse->moveToHost();
-      // print first 128 elements
-      for (int i = 0; i < 128; i++) {
-        printf("%f ", __half2float(m_C_for_sparse->getHostPtr()[i]));
-      }
-      printf("\n");
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    // profileSparse2_tiled(std::forward<Func>(hgemm), name);
+    profileSparse2_tiled(std::forward<Func>(hgemm), name);
   }
 
   template <typename PreprocessFunc>

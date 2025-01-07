@@ -16,7 +16,7 @@
 #define MMA_N 8
 #define MMA_K 16
 
-#define BLOCK 2
+#define BLOCK 4
 
 class Matrix {
 public:
@@ -118,12 +118,12 @@ public:
       m_avg_diff += diff;
 
       // Print diff and values
-      printf("%.0f ", __half2float(m_host_ptr[i]));
+      // printf("%.0f ", __half2float(m_host_ptr[i]));
 
-      // Add newline after every 64 values (assuming N=64)
-      if ((i + 1) % 64 == 0) {
-        printf("\n");
-      }
+      // // Add newline after every 64 values (assuming N=64)
+      // if ((i + 1) % 64 == 0) {
+      //   printf("\n");
+      // }
     }
     m_avg_diff /= static_cast<double>(m_elem_num);
 
