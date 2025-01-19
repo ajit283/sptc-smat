@@ -18,6 +18,8 @@
 
 #define BLOCK 4
 
+#define ALIGNMENT_OFFSET 8
+
 __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
                                          int *bcsrColIdxA, half *B, half *C,
                                          size_t M, size_t N, size_t K,
@@ -41,8 +43,10 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
     return;
   }
 
-  __shared__ half A_smem[NUM_STAGES][MMA_M * BLOCK][MMA_K * BLOCK];
-  __shared__ half B_smem[NUM_STAGES][MMA_N * BLOCK][MMA_K * BLOCK];
+  __shared__ half
+      A_smem[NUM_STAGES][MMA_M * BLOCK][(MMA_K + ALIGNMENT_OFFSET) * BLOCK];
+  __shared__ half
+      B_smem[NUM_STAGES][MMA_N * BLOCK][(MMA_K + ALIGNMENT_OFFSET) * BLOCK];
   __shared__ half C_smem[MMA_M * BLOCK][MMA_N * BLOCK];
 
   const size_t lane_id = threadIdx.x % WARP_SIZE;
@@ -68,7 +72,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
       cuda::memcpy_async(
           ((int4 *)(&A_smem[stage][warp_id_y * MMA_M + (lane_id / 2)]
-                           [warp_id_x * MMA_K]) +
+                           [warp_id_x * (MMA_K + ALIGNMENT_OFFSET)]) +
            lane_id % 2),
           (((int4 *)(&bcsrValuesA
                          [(relativeIndex)*MMA_M * MMA_K * BLOCK * BLOCK +
@@ -80,7 +84,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       if (lane_id < MMA_N * 2) { // Original condition preserved
         cuda::memcpy_async(
             ((int4 *)(&B_smem[stage][warp_id_y * MMA_N + (lane_id / 2)]
-                             [warp_id_x * MMA_K]) +
+                             [warp_id_x * (MMA_K + ALIGNMENT_OFFSET)]) +
              lane_id % 2),
             ((int4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
                          (warp_col + warp_id_y * MMA_N + lane_id / 2) * K]) +
@@ -107,13 +111,13 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
       uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
           &A_smem[stage][warp_id_y * MMA_M + (lane_id % 16)]
-                 [i * MMA_K + (lane_id / 16) * 8]);
+                 [i * (MMA_K + ALIGNMENT_OFFSET) + (lane_id / 16) * 8]);
       LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
                   A_smem_lane_addr);
 
       uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
           &B_smem[stage][warp_id_y * MMA_N + lane_id % 8]
-                 [i * MMA_K + ((lane_id / 8) % 2) * 8]);
+                 [i * (MMA_K + ALIGNMENT_OFFSET) + ((lane_id / 8) % 2) * 8]);
       LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
 
       HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
@@ -142,7 +146,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
       cuda::memcpy_async(
           ((int4 *)(&A_smem[stage][warp_id_y * MMA_M + (lane_id / 2)]
-                           [warp_id_x * MMA_K]) +
+                           [warp_id_x * (MMA_K + ALIGNMENT_OFFSET)]) +
            lane_id % 2),
           (((int4 *)(&bcsrValuesA
                          [(relativeIndex)*MMA_M * MMA_K * BLOCK * BLOCK +
@@ -154,7 +158,7 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       if (lane_id < MMA_N * 2) { // Original condition preserved
         cuda::memcpy_async(
             ((int4 *)(&B_smem[stage][warp_id_y * MMA_N + (lane_id / 2)]
-                             [warp_id_x * MMA_K]) +
+                             [warp_id_x * (MMA_K + ALIGNMENT_OFFSET)]) +
              lane_id % 2),
             ((int4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
                          (warp_col + warp_id_y * MMA_N + lane_id / 2) * K]) +

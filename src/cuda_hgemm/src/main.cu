@@ -425,7 +425,7 @@ int main(int argc, char *argv[]) {
   HLOG("Input .mtx: %s", file.data());
   Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), false);
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
   // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
