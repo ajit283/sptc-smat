@@ -68,7 +68,7 @@ DEFINE_bool(enable_check, false,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
-DEFINE_uint32(n_mult, 16, "n_mult * MMA_N = N");
+DEFINE_uint32(n_mult, 64, "n_mult * MMA_N = N");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_1024_0.4000.mtx",
@@ -81,6 +81,10 @@ DEFINE_string(filename,
               "./src/matrices/2_4_sparse_matrices/"
               "2_4_sparse_mtx_2048_0.1000.mtx",
               "input .mtx file");
+// DEFINE_string(filename,
+//               "./src/matrices/2_4_sparse_matrices/"
+//               "2_4_sparse_mtx_4096_0.1000.mtx",
+//               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_2_4_sparse/"
 //               "band_mtx_2_4_sparse_16384_32.mtx",

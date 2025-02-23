@@ -39,6 +39,9 @@ def generate_band_mtx_matrix(N: int, b: int, foldername: str = None, filename: s
 import os
 import random
 import math
+from collections import defaultdict
+import numpy as np
+
 
 def generate_band_mtx_matrix_2_4_sparse(N: int, b: int, foldername: str = None, filename: str = None):
     """
@@ -100,15 +103,37 @@ def generate_2_4_sparse_matrix(N: int, density: float, foldername: str = None, f
     # Randomly select positions for non-zero elements
     non_zero_positions = random.sample(positions, nnz)
     # Create the edge list, ensuring 2:4 sparsity
+    # --- Improved Version: Pre-group nonzero positions by row ---
+    row_edges_dict = defaultdict(list)
+    for r, c in non_zero_positions:
+        row_edges_dict[r].append(c)
+    
+    # edges = []
+    # for i in range(N):
+    #     row_edges = row_edges_dict.get(i, [])
+    #     # Process 4-column blocks within row i
+    #     for j in range(0, N, 4):
+    #         # Get all column indices within the current 4-column block
+    #         block = [c for c in row_edges if j <= c < j + 4]
+    #         if len(block) > 2:
+    #             block = random.sample(block, 2)
+    #         # Append each edge with a random value between 1 and 32
+    #         for c in block:
+    #             edges.append((i, c, random.randint(1, 32)))
+    # --- Alternative Version: Using NumPy for vectorized filtering ---
+    # Uncomment the following block if you prefer the NumPy approach.
+    non_zero_positions_np = np.array(non_zero_positions)
     edges = []
     for i in range(N):
-        row_edges = [edge for edge in non_zero_positions if edge[0] == i]
+        mask_row = non_zero_positions_np[:, 0] == i
+        row_edges = non_zero_positions_np[mask_row][:, 1]
         for j in range(0, N, 4):
-            block = [edge for edge in row_edges if j <= edge[1] < j+4]
-            if len(block) > 2:
-                block = random.sample(block, 2)
-            # Add random value between 1 and 32 to each edge
-            edges.extend((edge[0], edge[1], random.randint(1, 32)) for edge in block)
+            mask_block = (row_edges >= j) & (row_edges < j + 4)
+            block = row_edges[mask_block]
+            if block.size > 2:
+                block = np.random.choice(block, 2, replace=False)
+            for c in block:
+                edges.append((i, int(c), random.randint(1, 32)))
 
     # Sort edges for consistency (by row, then column)
     edges.sort()
@@ -153,7 +178,7 @@ def main():
         b_min = sys.argv[3]
         b_max = sys.argv[4]
         
-    generate_2_4_sparse_matrix(8192, 0.4)
+    generate_2_4_sparse_matrix(4096, 0.1)
 
     # N = N_min
     # while (N <= N_max):
