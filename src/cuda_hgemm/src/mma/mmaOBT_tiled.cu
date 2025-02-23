@@ -123,20 +123,20 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
     // moving along the main axis
     for (int i = 0; i < BLOCK; i++) {
 
-      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-          &A_smem[stage][warp_id_y][i][lane_id / 2][(lane_id % 2) * 8]);
       // uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-      //     &A_smem[stage][warp_id_y][i][(lane_id % 16)]
-      //            [(ALIGNMENT_OFFSET) + (lane_id / 16) * 8]);
+      //     &A_smem[stage][warp_id_y][i][lane_id / 2][(lane_id % 2) * 8]);
+      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+          &A_smem[stage][warp_id_y][i][(lane_id % 16)]
+                 [(ALIGNMENT_OFFSET) + (lane_id / 16) * 8]);
       LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
                   A_smem_lane_addr);
 
-      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-          &B_smem[stage][warp_id_y][i][(lane_id / 2) % 8]
-                 [(ALIGNMENT_OFFSET) + (lane_id % 2) * 8]);
       // uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-      //     &B_smem[stage][warp_id_y][i][lane_id % 8]
-      //            [(ALIGNMENT_OFFSET) + ((lane_id / 8) % 2) * 8]);
+      // &B_smem[stage][warp_id_y][i][(lane_id / 2) % 8]
+      //        [(ALIGNMENT_OFFSET) + (lane_id % 2) * 8]);
+      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+          &B_smem[stage][warp_id_y][i][lane_id % 8]
+                 [(ALIGNMENT_OFFSET) + ((lane_id / 8) % 2) * 8]);
       LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
 
       HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
