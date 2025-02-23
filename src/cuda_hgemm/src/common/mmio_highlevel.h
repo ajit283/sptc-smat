@@ -2,9 +2,9 @@
 
 #include "mmio.h"
 
-#define MMA_M 2
-#define MMA_N 1
-#define MMA_K 2
+#define MMA_M 16
+#define MMA_N 8
+#define MMA_K 16
 
 void exclusive_scan(int *input, int length) {
   if (length == 0 || length == 1)

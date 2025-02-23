@@ -50,6 +50,15 @@ public:
     HGEMM_CHECK(m_C_for_sparse);
     m_C_for_sparse->memSetHost();
     m_C_for_sparse->moveToDevice();
+    m_C_for_sparse->memSetDevice();
+
+    half *h_ptr = m_C_for_sparse->getHostPtr();
+    size_t size = m_C_for_sparse->getRow() * m_C_for_sparse->getCol();
+    for (size_t i = 0; i < size; i++) {
+      if (__hisnan(h_ptr[i])) {
+        printf("Found NaN in C at initialization: index %zu\n", i);
+      }
+    }
 
     m_base = new Matrix(m_M, m_N, "Matrix Base");
     HGEMM_CHECK(m_base);
@@ -223,6 +232,40 @@ public:
     m_C_for_sparse->tearUp(m_base_for_sparse);
 
     m_A_sparse->bcsrBlocking();
+
+    std::cout << "N " << m_C_for_sparse->getCol() << " " << std::endl;
+    // Detailed check of C matrix
+    // Detailed check of C matrix
+    size_t num_nans = 0;
+    size_t M = m_C_for_sparse->getRow();
+    size_t N = m_C_for_sparse->getCol();
+    half *h_ptr = m_C_for_sparse->getHostPtr();
+
+    std::cout << "Checking C matrix (" << M << " x " << N << ")..."
+              << std::endl;
+    for (size_t i = 0; i < M; i++) {
+      for (size_t j = 0; j < N; j++) {
+        half val = h_ptr[i * N + j];
+        float float_val = __half2float(val);
+        if (isnan(float_val)) { // Using standard isnan on float instead
+          std::cout << "NaN at position [" << i << "," << j << "]" << std::endl;
+          num_nans++;
+          if (num_nans <= 10) { // Only print first 10 occurrences
+            std::cout << "NaN found at row " << i << " col " << j << std::endl;
+          }
+        }
+      }
+    }
+    if (num_nans > 0) {
+      std::cout << "Total NaN count: " << num_nans << std::endl;
+    }
+
+    std::cout << "C[0] " << __half2float(m_C_for_sparse->getHostPtr()[0]) << " "
+              << __half2float(m_C_for_sparse->getHostPtr()[1]) << std::endl;
+    m_C_for_sparse->memSetDevice();
+    m_C_for_sparse->memSetHost();
+    std::cout << "C[0] " << __half2float(m_C_for_sparse->getHostPtr()[0]) << " "
+              << __half2float(m_C_for_sparse->getHostPtr()[1]) << std::endl;
 
     // warm up
     struct timeval t1, t2;

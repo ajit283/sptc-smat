@@ -48,9 +48,15 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
 // DEFINE_uint32(M, 121192, "M");
 // DEFINE_uint32(N, 121192, "N");
 // DEFINE_uint32(K, 121192, "K");
-DEFINE_uint32(M, 1024, "M");
-DEFINE_uint32(N, 1024, "N");
-DEFINE_uint32(K, 1024, "K");
+// DEFINE_uint32(M, 128, "M");
+// DEFINE_uint32(N, 128, "N");
+// DEFINE_uint32(K, 128, "K");
+// DEFINE_uint32(M, 1024, "M");
+// DEFINE_uint32(N, 1024, "N");
+// DEFINE_uint32(K, 1024, "K");
+DEFINE_uint32(M, 2048, "M");
+DEFINE_uint32(N, 2048, "N");
+DEFINE_uint32(K, 2048, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -62,15 +68,19 @@ DEFINE_bool(enable_check, false,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
-DEFINE_uint32(n_mult, 8, "n_mult * MMA_N = N");
-DEFINE_string(filename,
-              "./src/matrices/2_4_sparse_matrices/"
-              "2_4_sparse_mtx_1024.mtx",
-              "input .mtx file");
+DEFINE_uint32(n_mult, 16, "n_mult * MMA_N = N");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
-//               "2_4_sparse_mtx_2048_0.1000.mtx",
+//               "2_4_sparse_mtx_1024_0.4000.mtx",
 //               "input .mtx file");
+// DEFINE_string(filename,
+//               "./src/matrices/2_4_sparse_matrices/"
+//               "2_4_sparse_mtx_128_0.5000.mtx",
+//               "input .mtx file");
+DEFINE_string(filename,
+              "./src/matrices/2_4_sparse_matrices/"
+              "2_4_sparse_mtx_2048_0.1000.mtx",
+              "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_2_4_sparse/"
 //               "band_mtx_2_4_sparse_16384_32.mtx",
@@ -84,7 +94,7 @@ DEFINE_string(filename,
 void testBcsrBlocking() {
   SparseMatrix testMatrix(
       "TestMatrix",
-      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_8_0.5000.mtx");
+      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_64_0.5000.mtx");
 
   // Get matrix dimensions and check they're valid
   size_t rows = testMatrix.getRow();
@@ -92,7 +102,7 @@ void testBcsrBlocking() {
   std::cout << "Testing matrix of size " << rows << "x" << cols << std::endl;
 
   // Print original matrix pattern for visualization (up to 32x32)
-  const int DISPLAY_SIZE = 8;
+  const int DISPLAY_SIZE = 64;
   size_t display_rows = std::min(rows, (size_t)DISPLAY_SIZE);
   size_t display_cols = std::min(cols, (size_t)DISPLAY_SIZE);
 
@@ -416,12 +426,12 @@ int main(int argc, char *argv[]) {
 
   std::string file(FLAGS_filename);
   HLOG("Input .mtx: %s", file.data());
-  // Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
-  //               FLAGS_profiling_iterations, FLAGS_sleep_duration,
-  //               FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+  Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
+                FLAGS_profiling_iterations, FLAGS_sleep_duration,
+                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
-  //   //   tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
-  //   tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
+  // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
   //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
   //   //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
   //   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
@@ -430,13 +440,12 @@ int main(int argc, char *argv[]) {
   //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  // testBcsrBlocking();
 
   //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
   //                             "Mma-OBTS-Kernel");
-
-  testBcsrBlocking();
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 

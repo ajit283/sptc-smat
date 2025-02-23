@@ -1,0 +1,429 @@
+========== build enter ==========
+========== build cuda_hgemm ==========
+rm -rf build output
+mkdir build
+cd build
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_CUDA_ARCHITECTURES=86 -DCMAKE_BUILD_TYPE=Release -DHGEMM_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX=/home/ajit/code/sptc-smat/src/cuda_hgemm/output -DCMAKE_SKIP_RPATH=ON ..
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- The CUDA compiler identification is NVIDIA 12.6.68
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /usr/local/cuda-12.6/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Found CUDA: /usr/local/cuda-12.6 (found version "12.6")
+-- Found OpenMP_C: -fopenmp (found version "4.5")
+-- Found OpenMP_CXX: -fopenmp (found version "4.5")
+-- Found OpenMP: TRUE (found version "4.5")
+-- Configuring done (2.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/ajit/code/sptc-smat/src/cuda_hgemm/build
+make -j8
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -S/home/ajit/code/sptc-smat/src/cuda_hgemm -B/home/ajit/code/sptc-smat/src/cuda_hgemm/build --check-build-system CMakeFiles/Makefile.cmake 0
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_progress_start /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles /home/ajit/code/sptc-smat/src/cuda_hgemm/build//CMakeFiles/progress.marks
+make  -f CMakeFiles/Makefile2 all
+make[1]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird betreten
+make  -f CMakeFiles/hgemm.dir/build.make CMakeFiles/hgemm.dir/depend
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird betreten
+[  8%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o
+[ 16%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+[ 25%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+[ 41%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o
+[ 41%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o
+[ 50%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o
+[ 58%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/.
+[ 66%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mma_naive.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mma_naive.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.Release.cmake
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_cublas_tensor_op.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_cublas_tensor_op.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.Release.cmake
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaB.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaB.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.Release.cmake
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaBT.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaBT.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.Release.cmake
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_main.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_main.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.Release.cmake
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.Release.cmake
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaCBT.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaCBT.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.Release.cmake
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBTS.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBTS.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.Release.cmake
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mma_naive.cu.o
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_cublas_tensor_op.cu.o
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaB.cu.o
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaBT.cu.o
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT.cu.o
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_main.cu.o
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaCBT.cu.o
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBTS.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mma_naive.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_cublas_tensor_op.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaB.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaBT.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_main.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaCBT.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBTS.cu.o
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.NVCC-depend
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.NVCC-depend
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.NVCC-depend
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.NVCC-depend
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.NVCC-depend
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.NVCC-depend
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.NVCC-depend
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.NVCC-depend
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mma_naive.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/cublas_tensor_op.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaB.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaBT.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaCBT.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/main.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaOBT.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaOBTS.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend.tmp
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o.NVCC-depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_cublas_tensor_op.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o.NVCC-depend
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/cublas_tensor_op.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_cublas_tensor_op.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_main.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/main.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/./hgemm_generated_main.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend.tmp
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.NVCC-depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaBT.cu.o
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaCBT.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaBT.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaBT.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaCBT.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaCBT.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mma_naive.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mma_naive.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mma_naive.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaB.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaB.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaB.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend.tmp
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.NVCC-depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT.cu.o
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBTS.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaOBTS.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBTS.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaOBT.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+[ 75%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT_tiled.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT_tiled.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.Release.cmake
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT_tiled.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT_tiled.cu.o
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.NVCC-depend
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaOBT_tiled.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT_tiled.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaOBT_tiled.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaOBT_tiled.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+[ 83%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaST.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaST.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.Release.cmake
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaST.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaST.cu.o
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.NVCC-depend
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaST.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+[ 91%] Building NVCC (Device) object CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E make_directory /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/.
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D verbose:BOOL=ON -D build_configuration:STRING=Release -D generated_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaT.cu.o -D generated_cubin_file:STRING=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaT.cu.o.cubin.txt -P /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.Release.cmake
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaT.cu.o
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaT.cu.o
+-- Generating dependency file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.NVCC-depend
+/usr/local/cuda-12.6/bin/nvcc -M -D__CUDACC__ /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaT.cu -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.NVCC-depend -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend
+-- Generating temporary cmake readable file: /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend.tmp
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -D input_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.NVCC-depend -D output_file:FILEPATH=/home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend.tmp -D verbose=ON -P /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/share/cmake-3.30/Modules/FindCUDA/make2cmake.cmake
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaT.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaT.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaT.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+-- Copy if different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend.tmp to /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E copy_if_different /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend
+-- Removing /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend.tmp and /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.NVCC-depend
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E rm -f /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.depend.tmp /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o.NVCC-depend
+-- Generating /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaST.cu.o
+/usr/local/cuda-12.6/bin/nvcc /home/ajit/code/sptc-smat/src/cuda_hgemm/src/mma/mmaST.cu -c -o /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/src/mma/./hgemm_generated_mmaST.cu.o -ccbin /usr/bin/cc -m64 -DGFLAGS_IS_A_DLL=0 -Xcompiler ,\"-std=c++17\",\"-O3\" -std=c++17 -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda -gencode arch=compute_86,code=sm_86 --use_fast_math -O3 -DNVCC -I/usr/local/cuda-12.6/include -I/home/ajit/code/sptc-smat/src/cuda_hgemm/src/common -I/usr/local/cuda/include -I/usr/include
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_depends "Unix Makefiles" /home/ajit/code/sptc-smat/src/cuda_hgemm /home/ajit/code/sptc-smat/src/cuda_hgemm /home/ajit/code/sptc-smat/src/cuda_hgemm/build /home/ajit/code/sptc-smat/src/cuda_hgemm/build /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/DependInfo.cmake "--color="
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird verlassen
+make  -f CMakeFiles/hgemm.dir/build.make CMakeFiles/hgemm.dir/build
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird betreten
+[100%] Linking CXX executable hgemm
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_link_script CMakeFiles/hgemm.dir/link.txt --verbose=1
+/usr/bin/c++ -std=c++17  -O3 -Wl,--as-needed CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o -o hgemm   -L/usr/local/cuda/lib64  -L/usr/local/cuda-12.6/targets/x86_64-linux/lib/stubs  -L/usr/local/cuda-12.6/targets/x86_64-linux/lib  /usr/local/cuda-12.6/lib64/libcudart_static.a -ldl /usr/lib/x86_64-linux-gnu/librt.a -lcublas /usr/lib/x86_64-linux-gnu/libgflags.so.2.2.2 /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so /usr/lib/x86_64-linux-gnu/libpthread.a -lcudadevrt -lcudart_static -lrt -lpthread -ldl
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird verlassen
+[100%] Built target hgemm
+make[1]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird verlassen
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_progress_start /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles 0
+make install
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -S/home/ajit/code/sptc-smat/src/cuda_hgemm -B/home/ajit/code/sptc-smat/src/cuda_hgemm/build --check-build-system CMakeFiles/Makefile.cmake 0
+-- Found CUDA: /usr/local/cuda-12.6 (found version "12.6")
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/ajit/code/sptc-smat/src/cuda_hgemm/build
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_progress_start /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles /home/ajit/code/sptc-smat/src/cuda_hgemm/build//CMakeFiles/progress.marks
+make  -f CMakeFiles/Makefile2 all
+make[1]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird betreten
+make  -f CMakeFiles/hgemm.dir/build.make CMakeFiles/hgemm.dir/depend
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird betreten
+cd /home/ajit/code/sptc-smat/src/cuda_hgemm/build && /home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_depends "Unix Makefiles" /home/ajit/code/sptc-smat/src/cuda_hgemm /home/ajit/code/sptc-smat/src/cuda_hgemm /home/ajit/code/sptc-smat/src/cuda_hgemm/build /home/ajit/code/sptc-smat/src/cuda_hgemm/build /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles/hgemm.dir/DependInfo.cmake "--color="
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird verlassen
+make  -f CMakeFiles/hgemm.dir/build.make CMakeFiles/hgemm.dir/build
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird betreten
+[  8%] Linking CXX executable hgemm
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_link_script CMakeFiles/hgemm.dir/link.txt --verbose=1
+/usr/bin/c++ -std=c++17  -O3 -Wl,--as-needed CMakeFiles/hgemm.dir/src/hgemm_generated_cublas_tensor_op.cu.o CMakeFiles/hgemm.dir/src/hgemm_generated_main.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaB.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaBT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaCBT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBTS.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaOBT_tiled.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaST.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mmaT.cu.o CMakeFiles/hgemm.dir/src/mma/hgemm_generated_mma_naive.cu.o -o hgemm   -L/usr/local/cuda/lib64  -L/usr/local/cuda-12.6/targets/x86_64-linux/lib/stubs  -L/usr/local/cuda-12.6/targets/x86_64-linux/lib  /usr/local/cuda-12.6/lib64/libcudart.so -lcublas /usr/lib/x86_64-linux-gnu/libgflags.so.2.2.2 /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so /usr/lib/x86_64-linux-gnu/libpthread.a -lcudadevrt -lcudart_static -lrt -lpthread -ldl
+make[2]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird verlassen
+[100%] Built target hgemm
+make[1]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird verlassen
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_progress_start /home/ajit/code/sptc-smat/src/cuda_hgemm/build/CMakeFiles 0
+make  -f CMakeFiles/Makefile2 preinstall
+make[1]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird betreten
+make[1]: Für das Ziel „preinstall“ ist nichts zu tun.
+make[1]: Verzeichnis „/home/ajit/code/sptc-smat/src/cuda_hgemm/build“ wird verlassen
+Install the project...
+/home/ajit/.local/share/pipx/venvs/cmake/lib/python3.12/site-packages/cmake/data/bin/cmake -P cmake_install.cmake
+-- Install configuration: "Release"
+-- Installing: /home/ajit/code/sptc-smat/src/cuda_hgemm/output/bin/hgemm
+========== build info ==========
+========== build exit ==========
+got here 1
+got here 4
+got here 2
+got here 3
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
+val0: 174.000000 174.000000
+val1: 174.000000 174.000000
+val2: 174.000000 174.000000
+val3: 174.000000 174.000000
+val0: 175.000000 175.000000
+val1: 175.000000 175.000000
+val2: 175.000000 175.000000
+val3: 175.000000 175.000000
+val0: 176.000000 176.000000
+val1: 176.000000 176.000000
+val2: 176.000000 176.000000
+val3: 176.000000 176.000000
+val0: 13632.000000 13632.000000
+val1: 13632.000000 13632.000000
+val2: 13632.000000 13632.000000
+val3: 13632.000000 13632.000000
