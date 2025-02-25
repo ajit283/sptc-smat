@@ -15,9 +15,11 @@
             half *C, size_t M, size_t N, size_t K, size_t nonzeroBlocks,       \
             int *blockInfo, int *relativeBlockIndexMapping)
 #define HGEMM_FUNC_SPARSE24_2(name)                                            \
-  void name(half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA,             \
-            char *metadata, half *sparseMatrixA, half *B, half *C, size_t M,   \
-            size_t N, size_t K, size_t nonzeroBlocks, int *blockInfo,          \
+  void name(half *bcsrValuesA_sparse, int *bcsrRowPtrA_sparse,                 \
+            int *bcsrColIdxA_sparse, half *bcsrValuesA_dense,                  \
+            int *bcsrRowPtrA_dense, int *bcsrColIdxA_dense, char *metadata,    \
+            half *sparseMatrixA, half *B, half *C, size_t M, size_t N,         \
+            size_t K, size_t nonzeroBlocks, int *blockInfo,                    \
             int *relativeBlockIndexMapping)
 #define HGEMM_FUNC_SPARSE2(name)                                               \
   void name(half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA, half *B,    \
@@ -88,6 +90,10 @@ DEFINE_string(filename,
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_2_4_sparse/"
 //               "band_mtx_2_4_sparse_16384_32.mtx",
+//               "input .mtx file");
+// DEFINE_string(filename,
+//               "./src/matrices/band_matrices_2_4_sparse/"
+//               "band_mtx_2_4_sparse_1024_512.mtx",
 //               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_4_times/band_mtx_1024_512.mtx",
@@ -358,6 +364,114 @@ void testBcsrBlocking() {
     std::cout << "All values successfully found in merged blocks!\n";
   }
 }
+
+void testNewProperties() {
+  // Create a SparseMatrix instance using a known test .mtx file.
+  SparseMatrix testMatrix(
+      "TestMatrix",
+      "./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_64_0.5000.mtx");
+
+  size_t rows = testMatrix.getRow();
+  size_t cols = testMatrix.getCol();
+  std::cout << "Testing new properties for a matrix of size " << rows << " x "
+            << cols << "\n";
+
+  // Ensure the matrix has been converted to BCSR format.
+  testMatrix.bcsrBlocking();
+
+  // Now filter the blocks to get separate sparse and dense blocks along with
+  // new mappings.
+  testMatrix.filterBcsrBlocks();
+
+  // ---- Visualize the Filtered Sparse BCSR Properties ----
+  std::cout << "\n--- Sparse BCSR Properties ---\n";
+
+  // Assume these getters return the host pointers to the corresponding arrays.
+  int *sparseRowPtr = testMatrix.getSparseBcsrRowPtrHost();
+  int numRowRegions =
+      rows / MMA_M; // Assumes m_row is an exact multiple of MMA_M.
+  std::cout << "Sparse BCSR Row Pointer: ";
+  for (int i = 0; i <= numRowRegions; i++) {
+    std::cout << sparseRowPtr[i] << " ";
+  }
+  std::cout << "\n";
+
+  int totalSparseBlocks = sparseRowPtr[numRowRegions];
+  int *sparseColIdx = testMatrix.getSparseBcsrColIdxHost();
+  std::cout << "Sparse BCSR Column Indices: ";
+  for (int i = 0; i < totalSparseBlocks; i++) {
+    std::cout << sparseColIdx[i] << " ";
+  }
+  std::cout << "\n";
+
+  half *sparseVals = testMatrix.getSparseBcsrValuesHost();
+  if (totalSparseBlocks > 0) {
+    std::cout << "First Sparse BCSR Block Values (" << MMA_M << "x" << MMA_K
+              << "):\n";
+    for (int i = 0; i < MMA_M; i++) {
+      for (int j = 0; j < MMA_K; j++) {
+        float val = __half2float(sparseVals[i * MMA_K + j]);
+        std::cout << val << "\t";
+      }
+      std::cout << "\n";
+    }
+  } else {
+    std::cout << "No sparse blocks found.\n";
+  }
+
+  // Print the sparse block info (should be all ones)
+  int *sparseBlockInfo = testMatrix.getSparseBlockInfoHost();
+  std::cout << "Sparse Block Info (each entry should be 1): ";
+  for (int i = 0; i < totalSparseBlocks; i++) {
+    std::cout << sparseBlockInfo[i] << " ";
+  }
+  std::cout << "\n";
+
+  // Print the sparse relative block index mapping over the global block grid.
+  int numColRegions = (cols + MMA_K - 1) / MMA_K;
+  int totalGlobalBlocks = numRowRegions * numColRegions;
+  int *sparseRelMapping = testMatrix.getSparseRelativeBlockIndexMappingHost();
+  std::cout << "Sparse Relative Block Index Mapping (global grid):\n";
+  for (int i = 0; i < numRowRegions; i++) {
+    for (int j = 0; j < numColRegions; j++) {
+      std::cout << sparseRelMapping[i * numColRegions + j] << "\t";
+    }
+    std::cout << "\n";
+  }
+
+  // ---- Visualize the Dense BCSR Properties (if any exist) ----
+  std::cout << "\n--- Dense BCSR Properties ---\n";
+  int *denseRowPtr = testMatrix.getDenseBcsrRowPtrHost();
+  std::cout << "Dense BCSR Row Pointer: ";
+  for (int i = 0; i <= numRowRegions; i++) {
+    std::cout << denseRowPtr[i] << " ";
+  }
+  std::cout << "\n";
+
+  int totalDenseBlocks = denseRowPtr[numRowRegions];
+  int *denseColIdx = testMatrix.getDenseBcsrColIdxHost();
+  std::cout << "Dense BCSR Column Indices: ";
+  for (int i = 0; i < totalDenseBlocks; i++) {
+    std::cout << denseColIdx[i] << " ";
+  }
+  std::cout << "\n";
+
+  half *denseVals = testMatrix.getDenseBcsrValuesHost();
+  if (totalDenseBlocks > 0) {
+    std::cout << "First Dense BCSR Block Values (" << MMA_M << "x" << MMA_K
+              << "):\n";
+    for (int i = 0; i < MMA_M; i++) {
+      for (int j = 0; j < MMA_K; j++) {
+        float val = __half2float(denseVals[i * MMA_K + j]);
+        std::cout << val << "\t";
+      }
+      std::cout << "\n";
+    }
+  } else {
+    std::cout << "No dense blocks found.\n";
+  }
+}
+
 // DEFINE_string(filename, "./src/matrices/suitesparse/mip1/mip1.mtx",
 //               "input .mtx file");
 
@@ -437,19 +551,21 @@ int main(int argc, char *argv[]) {
   // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
   //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-  //   //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
-  //   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
-  //                           "Mma-ST-Kernel");
+  // tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  // tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
+  // "Mma-ST-Kernel");
 
   //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
   tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
   // testBcsrBlocking();
 
-  //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
-  //                             "Mma-OBTS-Kernel");
+  // tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
+  //                           "Mma-OBTS-Kernel");
+
+  // testNewProperties();
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 

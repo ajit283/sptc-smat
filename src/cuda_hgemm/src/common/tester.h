@@ -300,10 +300,10 @@ public:
   getPreprocessed(PreprocessFunc &&preprocess) {
     size_t colRegions = (m_A_sparse->getCol() + MMA_K - 1) / (MMA_K);
     size_t rowRegions = (m_A_sparse->getRow() + MMA_M - 1) / (MMA_M);
-    size_t nonzeroBlocks = m_A_sparse->getNonzeroblocks();
-    HLOG("%d nonzero blocks", nonzeroBlocks);
+    size_t sparseBlocks = m_A_sparse->getSparseblocks();
+    HLOG("%d sparse blocks", sparseBlocks);
 
-    size_t metadata_size = nonzeroBlocks * MMA_M * (MMA_K / 8) / sizeof(half);
+    size_t metadata_size = sparseBlocks * MMA_M * (MMA_K / 8) / sizeof(half);
     auto metadata =
         std::make_unique<Matrix>(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata.get());
@@ -311,7 +311,7 @@ public:
     metadata->moveToDevice();
 
     size_t sparseMatrixA_size =
-        nonzeroBlocks * MMA_M * (MMA_K / 8) * sizeof(int2) / sizeof(half);
+        sparseBlocks * MMA_M * (MMA_K / 8) * sizeof(int2) / sizeof(half);
     auto sparseMatrixA =
         std::make_unique<Matrix>(sparseMatrixA_size, 1, "Sparse Matrix A");
     HGEMM_CHECK(sparseMatrixA.get());
@@ -326,11 +326,12 @@ public:
     usleep(m_sleep_duration * 1000);
     m_C_for_sparse->tearUp(m_base_for_sparse);
 
-    preprocess(m_A_sparse->getBcsrValues(), (char *)(metadata->getDevPtr()),
-               sparseMatrixA->getDevPtr(), m_A_sparse->getRow(),
-               m_A_sparse->getCol(), m_K, m_A_sparse->getNonzeroblocks(),
-               m_A_sparse->getBlockInfo_dev(),
-               m_A_sparse->getRelativeBlockIndexMapping_dev());
+    preprocess(m_A_sparse->getSparseBcsrValues(),
+               (char *)(metadata->getDevPtr()), sparseMatrixA->getDevPtr(),
+               m_A_sparse->getRow(), m_A_sparse->getCol(), m_K,
+               m_A_sparse->getSparseblocks(),
+               m_A_sparse->getSparseBlockInfo_dev(),
+               m_A_sparse->getSparseRelativeBlockIndexMapping_dev());
 
     return std::make_pair(std::move(metadata), std::move(sparseMatrixA));
   }
@@ -376,18 +377,21 @@ public:
          name.c_str());
     auto [metadata, sparseMatrixA] =
         getPreprocessed(std::forward<PreprocessFunc>(preprocess));
+
     cudaDeviceSynchronize();
     // warm up
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (size_t i = 0; i < m_warmup_iterations; ++i) {
-      hgemm(m_A_sparse->getBcsrValues(), m_A_sparse->getBcsrRowPtr(),
-            m_A_sparse->getBcsrColIdx(), (char *)(metadata->getDevPtr()),
-            sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-            m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-            m_C_for_sparse->getCol(), m_A_sparse->getCol(),
-            m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
-            m_A_sparse->getRelativeBlockIndexMapping_dev());
+      hgemm(
+          m_A_sparse->getSparseBcsrValues(), m_A_sparse->getSparseBcsrRowPtr(),
+          m_A_sparse->getSparseBcsrColIdx(), m_A_sparse->getDenseBcsrValues(),
+          m_A_sparse->getDenseBcsrRowPtr(), m_A_sparse->getDenseBcsrColIdx(),
+          (char *)(metadata->getDevPtr()), sparseMatrixA->getDevPtr(),
+          m_B_for_sparse->getDevPtr(), m_C_for_sparse->getDevPtr(),
+          m_A_sparse->getRow(), m_C_for_sparse->getCol(), m_A_sparse->getCol(),
+          m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
+          m_A_sparse->getRelativeBlockIndexMapping_dev());
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);
@@ -705,13 +709,15 @@ private:
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (size_t i = 0; i < m_profiling_iterations; ++i) {
-      hgemm(m_A_sparse->getBcsrValues(), m_A_sparse->getBcsrRowPtr(),
-            m_A_sparse->getBcsrColIdx(), (char *)(metadata->getDevPtr()),
-            sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-            m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-            m_C_for_sparse->getCol(), m_A_sparse->getCol(),
-            m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
-            m_A_sparse->getRelativeBlockIndexMapping_dev());
+      hgemm(
+          m_A_sparse->getSparseBcsrValues(), m_A_sparse->getSparseBcsrRowPtr(),
+          m_A_sparse->getSparseBcsrColIdx(), m_A_sparse->getDenseBcsrValues(),
+          m_A_sparse->getDenseBcsrRowPtr(), m_A_sparse->getDenseBcsrColIdx(),
+          (char *)(metadata->getDevPtr()), sparseMatrixA->getDevPtr(),
+          m_B_for_sparse->getDevPtr(), m_C_for_sparse->getDevPtr(),
+          m_A_sparse->getRow(), m_C_for_sparse->getCol(), m_A_sparse->getCol(),
+          m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
+          m_A_sparse->getRelativeBlockIndexMapping_dev());
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);

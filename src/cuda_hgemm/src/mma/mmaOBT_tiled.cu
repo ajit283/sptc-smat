@@ -75,15 +75,14 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
       // x axis = lane id % 2
 
       // cuda::memcpy_async(
-      //     ((int4 *)(&A_smem[stage][warp_id_y][warp_id_x]
-      //                      [((lane_id / 2)) / 2 + (lane_id % 2) * 8]
-      //                      [(ALIGNMENT_OFFSET)]) +
+      //     ((int4 *)(&A_smem[stage][warp_id_y][warp_id_x][(
+      //          (lane_id / 4) + (lane_id % 2) * 8)][(ALIGNMENT_OFFSET)]) +
       //      (lane_id / 2) % 2),
       //     (((int4 *)(&bcsrValuesA
       //                    [(relativeIndex)*MMA_M * MMA_K * BLOCK * BLOCK +
       //                     warp_id * MMA_M * MMA_K + (lane_id / 2) * MMA_K]) +
       //       lane_id % 2)),
-      //     sizeof(int4), pipe);
+      //     sizeof(int4), pipe); // correct
       cuda::memcpy_async(((int4 *)(&A_smem[stage][warp_id_y][warp_id_x]
                                           [(lane_id / 2)][(ALIGNMENT_OFFSET)]) +
                           lane_id % 2),
@@ -123,11 +122,11 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
     // moving along the main axis
     for (int i = 0; i < BLOCK; i++) {
 
-      // uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-      //     &A_smem[stage][warp_id_y][i][lane_id / 2][(lane_id % 2) * 8]);
       uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-          &A_smem[stage][warp_id_y][i][(lane_id % 16)]
-                 [(ALIGNMENT_OFFSET) + (lane_id / 16) * 8]);
+          &A_smem[stage][warp_id_y][i][lane_id / 2][(lane_id % 2) * 8]);
+      // uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+      //     &A_smem[stage][warp_id_y][i][(lane_id % 16)]
+      //            [(ALIGNMENT_OFFSET) + (lane_id / 16) * 8]);
       LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
                   A_smem_lane_addr);
 
@@ -162,6 +161,19 @@ __global__ void mmaOBTKernelSparse_tiled(half *bcsrValuesA, int *bcsrRowPtrA,
 
       size_t A_size = MMA_M * MMA_K * sizeof(half);
       size_t B_size = MMA_N * MMA_K * sizeof(half);
+
+      // y = lane_id / 2
+      // x = lane_id % 2
+
+      // cuda::memcpy_async(
+      //     ((int4 *)(&A_smem[stage][warp_id_y][warp_id_x][(
+      //          (lane_id / 4) + (lane_id % 2) * 8)][(ALIGNMENT_OFFSET)]) +
+      //      (lane_id / 2) % 2),
+      //     (((int4 *)(&bcsrValuesA
+      //                    [(relativeIndex)*MMA_M * MMA_K * BLOCK * BLOCK +
+      //                     warp_id * MMA_M * MMA_K + (lane_id / 2) * MMA_K]) +
+      //       lane_id % 2)),
+      //     sizeof(int4), pipe);
 
       cuda::memcpy_async(((int4 *)(&A_smem[stage][warp_id_y][warp_id_x]
                                           [(lane_id / 2)][(ALIGNMENT_OFFSET)]) +

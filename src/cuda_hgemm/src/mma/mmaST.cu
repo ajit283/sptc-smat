@@ -24,7 +24,6 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
                                 size_t K, size_t nonzeroBlocks, int *blockInfo,
                                 int *relativeBlockIndexMapping) {
   int PRINT_THREAD_ID = 11;
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
   // M = M * 2;
   // N = N * 2;
   // mmaSTKernel
@@ -41,7 +40,7 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
   size_t blockIndex = blockRow * colRegions + blockCol;
 
   // print M
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "M: %d\n", M);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "M: %d\n", M);
 
   if (warp_row >= M || warp_col >= N) {
     return;
@@ -54,7 +53,7 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
   uint32_t RC[2] = {0, 0};
 
   // print K_tiles
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
 
 #pragma unroll
   for (size_t i = 0; i < K_tiles; ++i) {
