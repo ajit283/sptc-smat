@@ -36,8 +36,6 @@ __global__ void mmaOBTSKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
     return;
   }
 
-  __shared__ half A_smem[NUM_STAGES][MMA_M][MMA_K];
-  __shared__ half B_smem[NUM_STAGES][MMA_N][MMA_K];
   __shared__ half C_smem[MMA_M][MMA_N];
 
   __shared__ half A_smem_sparse[NUM_STAGES][MMA_M][MMA_K / 2];
@@ -65,43 +63,22 @@ __global__ void mmaOBTSKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
 
       int sparsityInfo = blockInfo[blockIndex];
 
-      if (sparsityInfo == 2) {
+      cuda::memcpy_async(
+          ((int2 *)(&A_smem_sparse[stage][lane_id / 2][0]) + lane_id % 2),
+          (((int2 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 8) +
+           lane_id),
+          sizeof(int2), pipe);
+      cuda::memcpy_async(
+          ((Meta_smem_sparse[stage][lane_id / 2]) + (lane_id % 2)),
+          (metadata + (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)),
+          sizeof(char), pipe);
 
+      if (lane_id < MMA_N * 2) {
         cuda::memcpy_async(
-            ((int4 *)(&A_smem[stage][lane_id / 2][0]) + lane_id % 2),
-            (((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
-                                    (lane_id / 2) * MMA_K]) +
-              lane_id % 2)),
+            ((int4 *)(&B_smem_sparse[stage][lane_id / 2][0]) + lane_id % 2),
+            ((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
+             lane_id % 2),
             sizeof(int4), pipe);
-
-        // For matrix B
-        if (lane_id < MMA_N * 2) { // Original condition preserved
-          cuda::memcpy_async(
-              ((int4 *)(&B_smem[stage][lane_id / 2][0]) + lane_id % 2),
-              ((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
-               lane_id % 2),
-              sizeof(int4), pipe);
-        }
-
-      } else if (sparsityInfo == 1) {
-
-        cuda::memcpy_async(
-            ((int2 *)(&A_smem_sparse[stage][lane_id / 2][0]) + lane_id % 2),
-            (((int2 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 8) +
-             lane_id),
-            sizeof(int2), pipe);
-        cuda::memcpy_async(
-            ((Meta_smem_sparse[stage][lane_id / 2]) + (lane_id % 2)),
-            (metadata + (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)),
-            sizeof(char), pipe);
-
-        if (lane_id < MMA_N * 2) {
-          cuda::memcpy_async(
-              ((int4 *)(&B_smem_sparse[stage][lane_id / 2][0]) + lane_id % 2),
-              ((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
-               lane_id % 2),
-              sizeof(int4), pipe);
-        }
       }
     }
   };
@@ -136,45 +113,26 @@ __global__ void mmaOBTSKernelSparse(half *bcsrValuesA, int *bcsrRowPtrA,
 
     __syncthreads();
 
-    if (sparsityInfo == 2) {
+    uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+        &A_smem_sparse[stage][lane_id % 16][(lane_id / 16) * 4]);
+    LDMATRIX_X2(RA[stage][0], RA[stage][1], A_smem_lane_addr);
 
-      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-          &A_smem[stage][lane_id % 16][(lane_id / 16) * 8]);
-      LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
-                  A_smem_lane_addr);
+    uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+        &B_smem_sparse[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
+    LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
 
-      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-          &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
-      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
+    char metadata_local[4];
 
-      HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
-                RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
+    metadata_local[0] = (char)((Meta_smem_sparse[stage][lane_id / 4][0]));
+    metadata_local[1] = (char)((Meta_smem_sparse[stage][lane_id / 4][1]));
+    metadata_local[2] = (char)((Meta_smem_sparse[stage][(lane_id / 4) + 8][0]));
+    metadata_local[3] = (char)((Meta_smem_sparse[stage][(lane_id / 4) + 8][1]));
 
-    } else if (sparsityInfo == 1) {
+    uint32_t meta_value;
+    memcpy(&meta_value, metadata_local, sizeof(uint32_t));
 
-      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-          &A_smem_sparse[stage][lane_id % 16][(lane_id / 16) * 4]);
-      LDMATRIX_X2(RA[stage][0], RA[stage][1], A_smem_lane_addr);
-
-      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-          &B_smem_sparse[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
-      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
-
-      char metadata_local[4];
-
-      metadata_local[0] = (char)((Meta_smem_sparse[stage][lane_id / 4][0]));
-      metadata_local[1] = (char)((Meta_smem_sparse[stage][lane_id / 4][1]));
-      metadata_local[2] =
-          (char)((Meta_smem_sparse[stage][(lane_id / 4) + 8][0]));
-      metadata_local[3] =
-          (char)((Meta_smem_sparse[stage][(lane_id / 4) + 8][1]));
-
-      uint32_t meta_value;
-      memcpy(&meta_value, metadata_local, sizeof(uint32_t));
-
-      HMMA16816_SPARSE(RC[0], RC[1], RA[stage][0], RA[stage][1], RB[stage][0],
-                       RB[stage][1], RC[0], RC[1], meta_value, 0x0);
-    }
+    HMMA16816_SPARSE(RC[0], RC[1], RA[stage][0], RA[stage][1], RB[stage][0],
+                     RB[stage][1], RC[0], RC[1], meta_value, 0x0);
 
     __syncthreads();
 
