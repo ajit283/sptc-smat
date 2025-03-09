@@ -385,23 +385,27 @@ public:
 
   template <typename Func2, typename PreprocessFunc>
   void evaluateSparse24_2(Func2 &&hgemm, PreprocessFunc &&preprocess,
-                          const std::string &name) {
+                          const std::string &name, bool large = false) {
     HLOG("----------------- Sparse Evaluating 24 %s -----------------",
          name.c_str());
     auto [metadata, sparseMatrixA] =
-        getPreprocessed(std::forward<PreprocessFunc>(preprocess));
+        getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
     cudaDeviceSynchronize();
+    SparseMatrix *A_matrix = m_A_sparse;
+    if (large) {
+      A_matrix = m_A_sparse_large;
+    }
     // warm up
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (size_t i = 0; i < m_warmup_iterations; ++i) {
-      hgemm(m_A_sparse->getBcsrValues(), m_A_sparse->getBcsrRowPtr(),
-            m_A_sparse->getBcsrColIdx(), (char *)(metadata->getDevPtr()),
+      hgemm(A_matrix->getBcsrValues(), A_matrix->getBcsrRowPtr(),
+            A_matrix->getBcsrColIdx(), (char *)(metadata->getDevPtr()),
             sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-            m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-            m_C_for_sparse->getCol(), m_A_sparse->getCol(),
-            m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
-            m_A_sparse->getRelativeBlockIndexMapping_dev());
+            m_C_for_sparse->getDevPtr(), A_matrix->getRow(),
+            m_C_for_sparse->getCol(), A_matrix->getCol(),
+            A_matrix->getNonzeroblocks(), A_matrix->getBlockInfo_dev(),
+            A_matrix->getRelativeBlockIndexMapping_dev());
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);
@@ -415,7 +419,7 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse24_2(std::forward<Func2>(hgemm), preprocess, name);
+    profileSparse24_2(std::forward<Func2>(hgemm), preprocess, name, large);
   }
 
   template <typename Func>
@@ -718,11 +722,16 @@ private:
   }
   template <typename Func, typename PreprocessFunc>
   void profileSparse24_2(Func &&hgemm, PreprocessFunc &&preprocess,
-                         const std::string &name) {
+                         const std::string &name, bool large) {
 
     auto [metadata, sparseMatrixA] =
-        getPreprocessed(std::forward<PreprocessFunc>(preprocess));
+        getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
     cudaDeviceSynchronize();
+
+    SparseMatrix *A_matrix = m_A_sparse;
+    if (large) {
+      A_matrix = m_A_sparse_large;
+    }
 
     // m_cuda_timer.start();
     struct timeval t1, t2;
@@ -746,9 +755,13 @@ private:
 
     // m_profiling_time = static_cast<double>(m_cuda_timer.end()) /
     // static_cast<double>(m_profiling_iterations);
-    m_throughput = static_cast<double>(m_A_sparse->getNonzeroblocks() * MMA_M *
-                                       MMA_K * 2) *
-                   1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    int k = 16;
+    if (large) {
+      k = 32;
+    }
+    m_throughput =
+        static_cast<double>(A_matrix->getNonzeroblocks() * MMA_M * k * 2) *
+        1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {

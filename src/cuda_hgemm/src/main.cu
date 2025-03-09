@@ -37,6 +37,7 @@ HGEMM_FUNC_SPARSE2(mmaCBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel);
+HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel_large);
 
 void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
@@ -77,7 +78,7 @@ DEFINE_bool(enable_check, false,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
-DEFINE_uint32(n_mult, 1, "n_mult * MMA_N = N");
+DEFINE_uint32(n_mult, 4, "n_mult * MMA_N = N");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_1024_0.4000.mtx",
@@ -451,12 +452,15 @@ int main(int argc, char *argv[]) {
   //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
   // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
   // testBcsrBlocking();
 
-  //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
-  //                             "Mma-OBTS-Kernel");
+  tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
+                            "Mma-OBTS-Kernel");
+  tester.evaluateSparse24_2(mmaOBTSKernel_large,
+                            preprocessing_mmaSTKernel_large,
+                            "Mma-OBTS-Kernel-large", true);
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 

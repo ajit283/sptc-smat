@@ -261,30 +261,6 @@ __global__ void mmaSTKernelSparse_large(half *bcsrValuesA, char *metadata,
       *((half *)(Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) = *(
           (half *)metadata + (relativeIndex * MMA_M * (MMA_K / 16) + lane_id));
 
-      // if (lane_id < MMA_N * 2) {
-      //   *((long4 *)(&B_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
-      //       *((long4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
-      //         lane_id % 2);
-      // }
-
-      // *((int4 *)(&A_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
-      //     *((int4 *)((sparseMatrixA) + relativeIndex * MMA_M * (MMA_K / 8)) +
-      //       lane_id);
-
-      // *((half *)(Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) =
-      //     *((half *)(metadata + (relativeIndex * MMA_M * (MMA_K / 8)) +
-      //                lane_id * 2));
-
-      // *((half *)(Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) = *(
-      //     (half *)metadata + (relativeIndex * MMA_M * (MMA_K / 16) +
-      //     lane_id));
-
-      // if (lane_id < MMA_N * 2) {
-      //   *((long4 *)(&B_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
-      //       *((long4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
-      //         lane_id % 2);
-      // }
-
       *((int4 *)(&B_smem_sparse[lane_id / 4][0]) + lane_id % 4) = *(
           (int4 *)(&B[i * MMA_K + (warp_col + lane_id / 4) * K]) + lane_id % 4);
 
