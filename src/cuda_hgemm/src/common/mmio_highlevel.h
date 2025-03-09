@@ -511,9 +511,9 @@ int mmio_data(int *csrRowPtr, int *csrColIdx, half *csrVal, char *filename)
   return 0;
 }
 
-void padSparseMatrix(int *row, int *col) {
+void padSparseMatrix(int *row, int *col, int k) {
   int rowToAdd = (*row % MMA_M != 0) ? MMA_M - *row % MMA_M : 0;
-  int colToAdd = (*col % MMA_K != 0) ? MMA_K - *col % MMA_K : 0;
+  int colToAdd = (*col % k != 0) ? k - *col % k : 0;
 
   *row += rowToAdd;
   *col += colToAdd;
@@ -522,7 +522,7 @@ void padSparseMatrix(int *row, int *col) {
 // read matrix infomation from mtx file
 int mmio_allinone(size_t *m, size_t *n, size_t *nnz, int *isSymmetric,
                   int **csrRowPtr, int **csrColIdx, half **csrVal,
-                  char *filename) {
+                  char *filename, int k = 16) {
   int m_tmp, n_tmp;
   int nnz_tmp;
 
@@ -558,7 +558,7 @@ int mmio_allinone(size_t *m, size_t *n, size_t *nnz, int *isSymmetric,
 
   /* find out size of sparse matrix .... */
   ret_code = mm_read_mtx_crd_size(f, &m_tmp, &n_tmp, &nnz_mtx_report);
-  padSparseMatrix(&m_tmp, &n_tmp);
+  padSparseMatrix(&m_tmp, &n_tmp, k);
   if (ret_code != 0)
     return -4;
 

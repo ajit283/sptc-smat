@@ -14,7 +14,7 @@
 
 #define MMA_M 16
 #define MMA_N 8
-#define MMA_K 32
+// #define MMA_K 32
 
 #define BLOCK 4
 
@@ -152,8 +152,9 @@ private:
 class SparseMatrix {
 public:
   SparseMatrix(const std::string &name = "Matrix",
-               char *file = "./data/cop20k_A.mtx")
+               char *file = "./data/cop20k_A.mtx", int k = 16)
       : m_name(name), filename(file) {
+    mMMA_K = k;
 
     readCsr();
 
@@ -205,7 +206,7 @@ public:
     } */
 
     HGEMM_CHECK_CUDART_ERROR(cudaMalloc(
-        (void **)&bcsrVal_dev, nonzeroBlocks * MMA_M * MMA_K * sizeof(half)));
+        (void **)&bcsrVal_dev, nonzeroBlocks * MMA_M * mMMA_K * sizeof(half)));
     HGEMM_CHECK_CUDART_ERROR(
         cudaMalloc((void **)&bcsrColIdx_dev, nonzeroBlocks * sizeof(int)));
     HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&bcsrRowPtr_dev,
@@ -220,8 +221,8 @@ public:
     HGEMM_CHECK(bcsrRowPtr_dev);
 
     HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
-        bcsrVal_dev, bcsrVal_host, nonzeroBlocks * MMA_M * MMA_K * sizeof(half),
-        cudaMemcpyHostToDevice));
+        bcsrVal_dev, bcsrVal_host,
+        nonzeroBlocks * MMA_M * mMMA_K * sizeof(half), cudaMemcpyHostToDevice));
     HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(bcsrColIdx_dev, bcsrColIdx_host,
                                         nonzeroBlocks * sizeof(int),
                                         cudaMemcpyHostToDevice));
@@ -378,7 +379,7 @@ public:
   void readCsr() {
     int isSymmetric;
     mmio_allinone(&m_row, &m_col, &nnz, &isSymmetric, &csrRowPtr_host,
-                  &csrColIdx_host, &csrVal_host, filename);
+                  &csrColIdx_host, &csrVal_host, filename, mMMA_K);
   }
 
   void outputCsr() {
@@ -440,7 +441,7 @@ public:
 
   void csrToBcsr() {
     // first prepare the info arrays
-    size_t numColRegions = (m_col + MMA_K - 1) / MMA_K;
+    size_t numColRegions = (m_col + mMMA_K - 1) / mMMA_K;
     size_t numRowRegions = (m_row + MMA_M - 1) / MMA_M;
 
     numberOfBlocks = numRowRegions * numColRegions;
@@ -456,7 +457,7 @@ public:
         // printf("%f\n", csrValA[j]);
         // printf("col %d\n", col);
         size_t rowRegion = row / MMA_M;
-        size_t colRegion = col / MMA_K;
+        size_t colRegion = col / mMMA_K;
         // printf("row_reg %d  col reg %d \n", rowRegion, colRegion);
         size_t blockIndex = rowRegion * numColRegions + colRegion;
         // printf("block  index %d\n", blockIndex);
@@ -496,7 +497,7 @@ public:
     // get the bcsr
     bcsrRowPtr_host = (int *)calloc(sizeof(int), (m_row / MMA_M + 1));
     bcsrColIdx_host = (int *)malloc(nonzeroBlocks * sizeof(int));
-    bcsrVal_host = (half *)calloc(sizeof(half), nonzeroBlocks * MMA_M * MMA_K);
+    bcsrVal_host = (half *)calloc(sizeof(half), nonzeroBlocks * MMA_M * mMMA_K);
 
     size_t num_blocks = 0;
 
@@ -507,8 +508,8 @@ public:
       // printf("rowPtr[%d] = %d\n", row/MMA_M, num_blocks);
 
       // Iterate through columns
-      for (size_t col = 0; col < m_col; col += MMA_K) {
-        size_t current_block = row / MMA_M * numColRegions + col / MMA_K;
+      for (size_t col = 0; col < m_col; col += mMMA_K) {
+        size_t current_block = row / MMA_M * numColRegions + col / mMMA_K;
         // printf("Problem in 320?");
         if (blockInfo_host[current_block] == 0) {
           continue;
@@ -533,14 +534,15 @@ public:
         size_t col = csrColIdx_host[j];
         // printf("col %d\n", col);
         size_t rowRegion = row / MMA_M;
-        size_t colRegion = col / MMA_K;
+        size_t colRegion = col / mMMA_K;
         // printf("row_reg %d  col reg %d \n", rowRegion, colRegion);
         size_t blockIndex = rowRegion * numColRegions + colRegion;
         half val = csrVal_host[j];
         // printf("val %f\n", val);
-        size_t offset = row % MMA_M * MMA_K + col % MMA_K;
+        size_t offset = row % MMA_M * mMMA_K + col % mMMA_K;
         size_t bcsrIndex =
-            relativeBlockIndexMapping_host[blockIndex] * MMA_M * MMA_K + offset;
+            relativeBlockIndexMapping_host[blockIndex] * MMA_M * mMMA_K +
+            offset;
         // printf("relativeIndex %d x %d +  offset %d = %d\n",
         // relativeBlockIndexMapping[blockIndex], blockSize, offset, bcsrIndex);
         bcsrVal_host[bcsrIndex] = val;
@@ -573,7 +575,7 @@ public:
 
     // std::cout << "Starting with size: " << size << std::endl;
 
-    size_t numColRegions = (m_col + (MMA_K * BLOCK) - 1) / (MMA_K * BLOCK);
+    size_t numColRegions = (m_col + (mMMA_K * BLOCK) - 1) / (mMMA_K * BLOCK);
     size_t numRowRegions = (m_row + (MMA_M * BLOCK) - 1) / (MMA_M * BLOCK);
 
     std::vector<std::vector<int>> mergedBlockInfo(
@@ -599,7 +601,7 @@ public:
       int col = bcsrColIdx_host[i];
       // std::cout << "Col is: " << col << std::endl;
 
-      int aligned_x = col - (col % (BLOCK * MMA_K));
+      int aligned_x = col - (col % (BLOCK * mMMA_K));
       int aligned_y = row - (row % (BLOCK * MMA_M));
       bool partOfPreviousBlock = false;
       // check if there is a previous block that this would be part of
@@ -622,10 +624,10 @@ public:
             //           << std::endl;
             // std::cout << "Source offset: " << i * MMA_M * MMA_K << std::endl;
 
-            memcpy(e.vals + MMA_K * BLOCK * positionInBlock_y +
+            memcpy(e.vals + mMMA_K * BLOCK * positionInBlock_y +
                        positionInBlock_x * MMA_M,
-                   bcsrVal_host + i * MMA_M * MMA_K,
-                   sizeof(half) * MMA_M * MMA_K);
+                   bcsrVal_host + i * MMA_M * mMMA_K,
+                   sizeof(half) * MMA_M * mMMA_K);
 
             // Print some values we just copied
             // for (int j = 0; j < 5; j++) {
@@ -644,23 +646,23 @@ public:
         // std::cout << "Creating new block at (" << aligned_y << "," <<
         // aligned_x
         //           << ")\n";
-        int positionInBlock_x = (col % (BLOCK * MMA_K));
+        int positionInBlock_x = (col % (BLOCK * mMMA_K));
         int positionInBlock_y = (row % (BLOCK * MMA_M));
         // std::cout << "Position in block: (" << positionInBlock_y << ","
         //           << positionInBlock_x << ")\n";
 
         half *vals =
-            (half *)calloc(BLOCK * BLOCK * MMA_M * MMA_K, sizeof(half));
+            (half *)calloc(BLOCK * BLOCK * MMA_M * mMMA_K, sizeof(half));
         size_t dest_offset =
-            positionInBlock_y * MMA_K * BLOCK + positionInBlock_x;
-        size_t src_offset = i * MMA_M * MMA_K;
+            positionInBlock_y * mMMA_K * BLOCK + positionInBlock_x;
+        size_t src_offset = i * MMA_M * mMMA_K;
         // std::cout << "Copying " << MMA_M * MMA_K << " values from offset "
         //           << src_offset << " to offset " << dest_offset << "\n";
         memcpy(vals + dest_offset, bcsrVal_host + src_offset,
-               MMA_M * MMA_K * sizeof(half));
+               MMA_M * mMMA_K * sizeof(half));
 
         mergedBlockInfo.at(aligned_y / (BLOCK * MMA_M))
-            .at(aligned_x / (BLOCK * MMA_K)) = 1;
+            .at(aligned_x / (BLOCK * mMMA_K)) = 1;
 
         // Print some values we just copied
         // for (int j = 0; j < 5; j++) {
@@ -725,7 +727,7 @@ public:
       colIdx.push_back(blocks[i].x);
 
       // Add values
-      for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
+      for (int j = 0; j < BLOCK * BLOCK * MMA_M * mMMA_K; j++) {
         values.push_back(blocks[i].vals[j]);
       }
     }
@@ -806,7 +808,7 @@ public:
     }
   }
   void csrToBcsrKnapsacking() {
-    size_t numColRegions = (m_col + MMA_K - 1) / MMA_K;
+    size_t numColRegions = (m_col + mMMA_K - 1) / mMMA_K;
     size_t numRowRegions = (m_row + MMA_M - 1) / MMA_M;
     std::vector<std::vector<std::tuple<size_t, size_t, float, long, size_t>>>
         startsEndsOfCols(numRowRegions);
@@ -867,9 +869,9 @@ public:
       size_t span = lastColumn - firstColumn + 1;
       size_t potentialAddLeft = firstColumn - 0;
       size_t potentialAddRight = m_col - lastColumn - 1;
-      size_t to_add = MMA_K - span % MMA_K;
+      size_t to_add = mMMA_K - span % mMMA_K;
 
-      if (span % MMA_K == 0) {
+      if (span % mMMA_K == 0) {
         start = std::get<0>(startsEndsOfCols[row / MMA_M][0]);
       } else {
 
@@ -884,7 +886,7 @@ public:
       }
 
       vecOfColIdx.push_back(start);
-      size_t end = start + MMA_K;
+      size_t end = start + mMMA_K;
       std::get<3>(startsEndsOfCols[row / MMA_M][0]) = nonzeroBlocks;
       // change relative column
       std::get<4>(startsEndsOfCols[row / MMA_M][0]) =
@@ -904,10 +906,10 @@ public:
           span = lastColumn - std::get<0>(startsEndsOfCols[row / MMA_M][i]) + 1;
           potentialAddLeft =
               std::get<0>(startsEndsOfCols[row / MMA_M][i]) - end;
-          to_add = MMA_K - span % MMA_K;
+          to_add = mMMA_K - span % mMMA_K;
           // printf("span %lu addLeft %lu addRight %lu toAdd %lu ", span,
           // potentialAddLeft, potentialAddRight, to_add);
-          if (span % MMA_K == 0) {
+          if (span % mMMA_K == 0) {
             start = std::get<0>(startsEndsOfCols[row / MMA_M][i]);
           } else {
             if (potentialAddRight >= to_add) {
@@ -921,7 +923,7 @@ public:
           }
 
           vecOfColIdx.push_back(start);
-          end = start + MMA_K;
+          end = start + mMMA_K;
           // printf(" start  %lu end %lu \n", start, end);
           nonzeroBlocks++;
         }
@@ -939,7 +941,7 @@ public:
 
     // printf ("%lu nnzblocks\n", (unsigned long) nonzeroBlocks);
     bcsrColIdx_host = (int *)malloc(nonzeroBlocks * sizeof(int));
-    bcsrVal_host = (half *)calloc(sizeof(half), nonzeroBlocks * MMA_M * MMA_K);
+    bcsrVal_host = (half *)calloc(sizeof(half), nonzeroBlocks * MMA_M * mMMA_K);
 
     size_t current_idx = 0;
     for (size_t i = 0; i < nonzeroBlocks; i++) {
@@ -958,7 +960,7 @@ public:
             __float2half(std::get<2>(startsEndsOfCols[rowRegion][element]));
         size_t relBlock = std::get<3>(startsEndsOfCols[rowRegion][element]);
         size_t relColumn = std::get<4>(startsEndsOfCols[rowRegion][element]);
-        bcsrVal_host[relBlock * MMA_M * MMA_K + (row % MMA_M) * MMA_K +
+        bcsrVal_host[relBlock * MMA_M * mMMA_K + (row % MMA_M) * mMMA_K +
                      relColumn] = val;
         // printf("%lu %lu %f %ld %lu ==> %lu\n", row, col, __half2float(val),
         // relBlock, relColumn, relBlock * MMA_M * MMA_K + (row % MMA_M) *
@@ -1007,6 +1009,8 @@ private:
   HGEMM_DISALLOW_COPY_AND_ASSIGN(SparseMatrix);
 
   char *filename = "";
+
+  int mMMA_K = 16;
 
   size_t nnz = 0;
 

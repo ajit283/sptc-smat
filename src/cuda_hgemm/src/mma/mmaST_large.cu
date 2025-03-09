@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "logging_cuda.h"
 #include "ptx.h"
 
 #define MMA_M 16
@@ -204,116 +205,120 @@ __global__ void mmaSTKernelSparse_large(half *bcsrValuesA, char *metadata,
     }
     DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
 
-    // _shared__ half C_smem[MMA_M][MMA_N];
-    // if (sparsityInfo == 2) {
+    if (sparsityInfo == 2) {
 
-    // if (true) {
-    // if (sparsityInfo == 2) {
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "DENSE");
 
-    //   // __shared__ half C_smem[MMA_M][MMA_N];
+      // __shared__ half C_smem[MMA_M][MMA_N];
 
-    //   *((int4 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
-    //       *((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
-    //                               (lane_id / 2) * MMA_K]) +
-    //         lane_id % 2);
-
-    //   // print matrix
-
-    //   if (lane_id < MMA_N * 2) {
-    //     *((int4 *)(&B_smem[lane_id / 2][0]) + lane_id % 2) =
-    //         *((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
-    //           lane_id % 2);
-    //   }
-
-    //   __syncthreads();
-
-    //   uint32_t RA[4];
-    //   uint32_t RB[2];
-
-    //   uint32_t A_smem_lane_addr =
-    //       __cvta_generic_to_shared(&A_smem[lane_id % 16][(lane_id / 16) *
-    //       8]);
-    //   LDMATRIX_X4(RA[0], RA[1], RA[2], RA[3], A_smem_lane_addr);
-
-    //   uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-    //       &B_smem[lane_id % 8][((lane_id / 8) % 2) * 8]);
-    //   LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
-
-    //   if (blockIdx.x == 0 && blockIdx.y == 0 &&
-    //       threadIdx.x == PRINT_THREAD_ID) {
-    //   }
-
-    //   HMMA16816(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1],
-    //   RC[0],
-    //             RC[1]);
-    // }
-
-    // else if (sparsityInfo == 1) {
-
-    *((int4 *)(&A_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
-        *(((int4 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 16) +
-          lane_id);
-
-    *((half *)(Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) =
-        *((half *)metadata + (relativeIndex * MMA_M * (MMA_K / 16) + lane_id));
-
-    if (lane_id < MMA_N * 2) {
-      *((long4 *)(&B_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
-          *((long4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
+      *((long4 *)(&A_smem[lane_id / 2][0]) + lane_id % 2) =
+          *(((long4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
+                                    (lane_id / 2) * MMA_K])) +
             lane_id % 2);
+
+      if (lane_id < MMA_N * 2) {
+        *((long4 *)(&B_smem[lane_id / 2][0]) + lane_id % 2) =
+            *((long4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
+              lane_id % 2);
+      }
+
+      __syncthreads();
+
+      uint32_t RA[4];
+      uint32_t RB[2];
+
+      uint32_t A_smem_lane_addr =
+          __cvta_generic_to_shared(&A_smem[lane_id % 16][(lane_id / 16) * 8]);
+      LDMATRIX_X4(RA[0], RA[1], RA[2], RA[3], A_smem_lane_addr);
+
+      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+          &B_smem[lane_id % 8][((lane_id / 8) % 2) * 8]);
+      LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
+
+      HMMA16816(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1], RC[0],
+                RC[1]);
+
+      A_smem_lane_addr = __cvta_generic_to_shared(
+          &A_smem[lane_id % 16][(lane_id / 16) * 8 + 16]);
+      LDMATRIX_X4(RA[0], RA[1], RA[2], RA[3], A_smem_lane_addr);
+
+      B_smem_lane_addr = __cvta_generic_to_shared(
+          &B_smem[lane_id % 8][((lane_id / 8) % 2) * 8 + 16]);
+      LDMATRIX_X2(RB[0], RB[1], B_smem_lane_addr);
+
+      HMMA16816(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1], RC[0],
+                RC[1]);
+
     }
 
-    __syncthreads();
+    else if (sparsityInfo == 1) {
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "SPARSE");
 
-    char metadata_local[4];
+      *((int4 *)(&A_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
+          *(((int4 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 16) +
+            lane_id);
 
-    // // metadata[0] = *cur_meta;
-    // metadata_local[0] = (char)((Meta_smem_sparse[lane_id / 4][0]));
-    // metadata_local[1] = (char)((Meta_smem_sparse[lane_id / 4][1]));
-    // metadata_local[2] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][0]));
-    // metadata_local[3] = (char)((Meta_smem_sparse[(lane_id / 4) + 8][1]));
-    metadata_local[0] =
-        (char)((Meta_smem_sparse[lane_id / 4][0 + 2 * (lane_id % 2)]));
-    metadata_local[1] =
-        (char)((Meta_smem_sparse[lane_id / 4][1 + 2 * (lane_id % 2)]));
-    metadata_local[2] =
-        (char)((Meta_smem_sparse[(lane_id / 4) + 8][0 + 2 * (lane_id % 2)]));
-    metadata_local[3] =
-        (char)((Meta_smem_sparse[(lane_id / 4) + 8][1 + 2 * (lane_id % 2)]));
+      *((half *)(Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) = *(
+          (half *)metadata + (relativeIndex * MMA_M * (MMA_K / 16) + lane_id));
 
-    uint32_t RA[4];
-    uint32_t RB[4];
+      // if (lane_id < MMA_N * 2) {
+      //   *((long4 *)(&B_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
+      //       *((long4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
+      //         lane_id % 2);
+      // }
 
-    uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-        &A_smem_sparse[lane_id % 16][(lane_id / 16) * 8]);
-    LDMATRIX_X4(RA[0], RA[1], RA[2], RA[3], A_smem_lane_addr);
+      // *((int4 *)(&A_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
+      //     *((int4 *)((sparseMatrixA) + relativeIndex * MMA_M * (MMA_K / 8)) +
+      //       lane_id);
 
-    uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-        &B_smem_sparse[lane_id % 8][((lane_id / 8) % 2) * 16]);
-    LDMATRIX_X4(RB[0], RB[1], RB[2], RB[3], B_smem_lane_addr);
+      // *((half *)(Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) =
+      //     *((half *)(metadata + (relativeIndex * MMA_M * (MMA_K / 8)) +
+      //                lane_id * 2));
 
-    uint32_t meta_value;
-    memcpy(&meta_value, metadata_local, sizeof(uint32_t));
+      // *((half *)(Meta_smem_sparse[lane_id / 2]) + (lane_id % 2)) = *(
+      //     (half *)metadata + (relativeIndex * MMA_M * (MMA_K / 16) +
+      //     lane_id));
 
-    // print RA, RB
-    DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RA: ", blockIndex,
-                       lane_id);
-    for (int k = 0; k < 4; ++k) {
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RA[k]);
+      // if (lane_id < MMA_N * 2) {
+      //   *((long4 *)(&B_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
+      //       *((long4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
+      //         lane_id % 2);
+      // }
+
+      *((int4 *)(&B_smem_sparse[lane_id / 4][0]) + lane_id % 4) = *(
+          (int4 *)(&B[i * MMA_K + (warp_col + lane_id / 4) * K]) + lane_id % 4);
+
+      __syncthreads();
+
+      char metadata_local[4];
+
+      metadata_local[0] =
+          (char)((Meta_smem_sparse[lane_id / 4][0 + 2 * (lane_id % 2)]));
+      metadata_local[1] =
+          (char)((Meta_smem_sparse[lane_id / 4][1 + 2 * (lane_id % 2)]));
+      metadata_local[2] =
+          (char)((Meta_smem_sparse[(lane_id / 4) + 8][0 + 2 * (lane_id % 2)]));
+      metadata_local[3] =
+          (char)((Meta_smem_sparse[(lane_id / 4) + 8][1 + 2 * (lane_id % 2)]));
+
+      uint32_t RA[4];
+      uint32_t RB[4];
+
+      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+          &A_smem_sparse[lane_id % 16][(lane_id / 16) * (MMA_K / 2 / 2)]);
+      LDMATRIX_X4(RA[0], RA[1], RA[2], RA[3], A_smem_lane_addr);
+
+      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+          &B_smem_sparse[lane_id % 8][((lane_id / 8) % 2) * (MMA_K / 2)]);
+      LDMATRIX_X4(RB[0], RB[1], RB[2], RB[3], B_smem_lane_addr);
+
+      uint32_t meta_value;
+      memcpy(&meta_value, metadata_local, sizeof(uint32_t));
+
+      HMMA16832_SPARSE(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1],
+                       RB[2], RB[3], RC[0], RC[1], meta_value, 0x0);
     }
-    DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
-
-    DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RB: ", blockIndex,
-                       lane_id);
-    for (int k = 0; k < 4; ++k) {
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RB[k]);
-    }
-    DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
-
-    HMMA16832_SPARSE(RC[0], RC[1], RA[0], RA[1], RA[2], RA[3], RB[0], RB[1],
-                     RB[2], RB[3], RC[0], RC[1], meta_value, 0x0);
   }
-  // }
 
   *((uint32_t *)(&C_smem[lane_id / 4][0]) + lane_id % 4) = RC[0];
   *((uint32_t *)(&C_smem[lane_id / 4 + 8][0]) + lane_id % 4) = RC[1];
