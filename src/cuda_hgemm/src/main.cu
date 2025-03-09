@@ -29,6 +29,7 @@ HGEMM_FUNC(cublasTensorOp);
 HGEMM_FUNC_SPARSE(mmaNaiveKernel);
 HGEMM_FUNC_SPARSE(mmaTKernel);
 HGEMM_FUNC_SPARSE24(mmaSTKernel);
+HGEMM_FUNC_SPARSE24(mmaSTKernel_large);
 
 HGEMM_FUNC_SPARSE2(mmaBKernel);
 HGEMM_FUNC_SPARSE2(mmaBTKernel);
@@ -41,6 +42,11 @@ void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
                                size_t K, size_t nonzeroBlocks, int *blockInfo,
                                int *relativeBlockIndexMapping);
+void preprocessing_mmaSTKernel_large(half *bcsrValuesA, char *metadata,
+                                     half *sparseMatrixA, size_t M, size_t N,
+                                     size_t K, size_t nonzeroBlocks,
+                                     int *blockInfo,
+                                     int *relativeBlockIndexMapping);
 
 // DEFINE_uint32(M, 16384, "M");
 // DEFINE_uint32(N, 16384, "N");
@@ -433,15 +439,17 @@ int main(int argc, char *argv[]) {
   // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
   // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
   //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-  //   //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
-  //   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
-  //                           "Mma-ST-Kernel");
+  //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  // tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
+  //                         "Mma-ST-Kernel");
+  tester.evaluateSparse24(mmaSTKernel_large, preprocessing_mmaSTKernel_large,
+                          "Mma-ST-Kernel-large");
 
   //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
   //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
   // testBcsrBlocking();
 
   //   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,

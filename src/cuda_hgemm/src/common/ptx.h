@@ -31,6 +31,14 @@
       : "=r"(RD0), "=r"(RD1)                                                              \
       : "r"(RA0), "r"(RA1), "r"(RB0), "r"(RB1), "r"(RC0), "r"(RC1), "r"(RE),              \
         "n"(CONST))
+#define HMMA16832_SPARSE(RD0, RD1, RA0, RA1, RA2, RA3, RB0, RB1, RB2, RB3,                \
+                         RC0, RC1, RE, CONST)                                             \
+  asm volatile(                                                                           \
+      "mma.sp::ordered_metadata.sync.aligned.m16n8k32.row.col.f16.f16.f16.f16 {%0, %1}, \
+                {%2, %3, %4, %5}, {%6, %7, %8, %9}, {%10, %11}, %12, %13;" \
+      : "=r"(RD0), "=r"(RD1)                                                              \
+      : "r"(RA0), "r"(RA1), "r"(RA2), "r"(RA3), "r"(RB0), "r"(RB1), "r"(RB2),             \
+        "r"(RB3), "r"(RC0), "r"(RC1), "r"(RE), "n"(CONST))
 
 #if ((__CUDACC_VER_MAJOR__ == 11) && (__CUDACC_VER_MINOR__ >= 4)) ||           \
     (__CUDACC_VER_MAJOR__ > 11)
