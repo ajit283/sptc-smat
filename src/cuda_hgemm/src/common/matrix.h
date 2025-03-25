@@ -253,11 +253,20 @@ public:
       mergedBlockInfo_host = nullptr;
     }
 
+    if (mergedTileInfo_host) {
+      free(mergedTileInfo_host);
+      mergedTileInfo_host = nullptr;
+    }
+
     if (mergedRelativeBlockIndexMapping_host) {
       free(mergedRelativeBlockIndexMapping_host);
       mergedRelativeBlockIndexMapping_host = nullptr;
     }
 
+    if (mergedTileInfo_dev) {
+      HGEMM_CHECK_CUDART_ERROR(cudaFree(mergedTileInfo_dev));
+      mergedTileInfo_dev = nullptr;
+    }
     if (mergedBlockInfo_dev) {
       HGEMM_CHECK_CUDART_ERROR(cudaFree(mergedBlockInfo_dev));
       mergedBlockInfo_dev = nullptr;
@@ -322,6 +331,10 @@ public:
   int *getMergedBlockInfo_dev() { return mergedBlockInfo_dev; }
 
   int *getMergedBlockInfo_host() { return mergedBlockInfo_host; }
+
+  int *getMergedTileInfo_host() { return mergedTileInfo_host; }
+
+  int *getMergedTileInfo_dev() { return mergedTileInfo_dev; }
 
   size_t getMergedNonzeroBlocks() { return mergedNonzeroBlocks; }
 
@@ -568,6 +581,7 @@ public:
       int x;
       int y;
       half *vals;
+      int *sparsity;
     };
     int size = nonzeroBlocks;
     std::vector<Block> blocks;
@@ -629,6 +643,9 @@ public:
                    bcsrVal_host + i * MMA_M * mMMA_K,
                    sizeof(half) * MMA_M * mMMA_K);
 
+            e.sparsity[((positionInBlock_y) / MMA_M) * BLOCK *
+                       (positionInBlock_x) / MMA_K] = 1;
+
             // Print some values we just copied
             // for (int j = 0; j < 5; j++) {
             //   std::cout << "Value at " << j << ": "
@@ -670,7 +687,12 @@ public:
         //             << __half2float(vals[dest_offset + j]) << "\n";
         // }
 
-        Block block = {aligned_x, aligned_y, vals};
+        int sparsity[BLOCK * BLOCK];
+
+        sparsity[(positionInBlock_y / MMA_M) * BLOCK *
+                 (positionInBlock_x / MMA_K)] = 1;
+
+        Block block = {aligned_x, aligned_y, vals, sparsity};
         blocks.push_back(block);
       }
       // for (int b = 0; b < blocks.size(); b++) {
@@ -698,6 +720,7 @@ public:
     std::vector<int> rowPtr;
     std::vector<int> colIdx;
     std::vector<half> values;
+    std::vector<half> sparsity_tile;
 
     std::vector<std::vector<int>> mergedRelativeBlockIndexMapping(
         numRowRegions, std::vector<int>(numColRegions, 0));
@@ -732,6 +755,11 @@ public:
       }
     }
 
+    for (int i = 0; i < blocks.size(); i++) {
+      for (int j = 0; j < BLOCK * BLOCK; j++) {
+        sparsity_tile.push_back(blocks[i].sparsity[j]);
+      }
+    }
     // Add final rowPtr entry
     rowPtr.push_back(blocks.size());
     // rowPtr.push_back(blocks.size());
@@ -776,6 +804,12 @@ public:
     mergedRelativeBlockIndexMapping_host =
         (int *)malloc(numRowRegions * numColRegions * sizeof(int));
 
+    mergedTileInfo_host =
+        (int *)malloc(blocks.size() * BLOCK * BLOCK * sizeof(int));
+
+    memcpy(mergedTileInfo_host, sparsity_tile.data(),
+           sparsity_tile.size() * sizeof(int));
+
     // Copy from vectors to flat arrays
     for (size_t i = 0; i < numRowRegions; i++) {
       for (size_t j = 0; j < numColRegions; j++) {
@@ -793,6 +827,10 @@ public:
         cudaMalloc((void **)&mergedRelativeBlockIndexMapping_dev,
                    numRowRegions * numColRegions * sizeof(int)));
 
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&mergedTileInfo_dev,
+                   blocks.size() * BLOCK * BLOCK * sizeof(int)));
+
     // Copy to device
     HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
         mergedBlockInfo_dev, mergedBlockInfo_host,
@@ -801,6 +839,10 @@ public:
         mergedRelativeBlockIndexMapping_dev,
         mergedRelativeBlockIndexMapping_host,
         numRowRegions * numColRegions * sizeof(int), cudaMemcpyHostToDevice));
+
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
+        mergedTileInfo_dev, mergedTileInfo_host,
+        blocks.size() * BLOCK * BLOCK * sizeof(int), cudaMemcpyHostToDevice));
 
     // Free block memory
     for (auto &block : blocks) {
@@ -1036,8 +1078,12 @@ private:
   int *mergedBlockInfo_host = nullptr;
   int *mergedRelativeBlockIndexMapping_host = nullptr;
 
+  int *mergedTileInfo_host = nullptr;
+
   int *mergedBlockInfo_dev = nullptr;
   int *mergedRelativeBlockIndexMapping_dev = nullptr;
+
+  int *mergedTileInfo_dev = nullptr;
 
   half *csrVal_dev = nullptr;
   int *csrRowPtr_dev = nullptr;

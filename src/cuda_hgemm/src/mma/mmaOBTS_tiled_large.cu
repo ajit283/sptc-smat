@@ -10,7 +10,7 @@
 
 #define MMA_M 16
 #define MMA_N 8
-#define MMA_K 16
+#define MMA_K 32
 
 #define WARP_SIZE 32
 
@@ -20,11 +20,10 @@
 
 #define ALIGNMENT_OFFSET 0
 
-__global__ void
-mmaOBTKernelSparse_tiled_large(half *bcsrValuesA, int *bcsrRowPtrA,
-                               int *bcsrColIdxA, half *B, half *C, size_t M,
-                               size_t N, size_t K, size_t nonzeroBlocks,
-                               int *blockInfo, int *relativeBlockIndexMapping) {
+__global__ void mmaOBTSKernelSparse_tiled_large(
+    half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA, half *B, half *C,
+    size_t M, size_t N, size_t K, size_t nonzeroBlocks, int *blockInfo,
+    int *relativeBlockIndexMapping, int *tileInfo) {
 
   const size_t warp_row = blockIdx.y * MMA_M * BLOCK;
   const size_t warp_col = blockIdx.x * MMA_N * BLOCK;
@@ -70,40 +69,26 @@ mmaOBTKernelSparse_tiled_large(half *bcsrValuesA, int *bcsrRowPtrA,
       size_t A_size = MMA_M * MMA_K * sizeof(half);
       size_t B_size = MMA_N * MMA_K * sizeof(half);
 
-      // y axis = lane_id / 2
-
-      // x axis = lane id % 2
-
-      // cuda::memcpy_async(
-      //     ((int4 *)(&A_smem[stage][warp_id_y][warp_id_x]
-      //                      [((lane_id / 2)) / 2 + (lane_id % 2) * 8]
-      //                      [(ALIGNMENT_OFFSET)]) +
-      //      (lane_id / 2) % 2),
-      //     (((int4 *)(&bcsrValuesA
-      //                    [(relativeIndex)*MMA_M * MMA_K * BLOCK * BLOCK +
-      //                     warp_id * MMA_M * MMA_K + (lane_id / 2) * MMA_K]) +
-      //       lane_id % 2)),
-      //     sizeof(int4), pipe);
-      cuda::memcpy_async(((int4 *)(&A_smem[stage][warp_id_y][warp_id_x]
-                                          [(lane_id / 2)][(ALIGNMENT_OFFSET)]) +
+      cuda::memcpy_async(((long4 *)(&A_smem[stage][warp_id_y][warp_id_x][(
+                              lane_id / 2)][(ALIGNMENT_OFFSET)]) +
                           lane_id % 2),
-                         (((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K *
-                                                     BLOCK * BLOCK +
-                                                 warp_id * MMA_M * MMA_K +
-                                                 (lane_id / 2) * MMA_K]) +
+                         (((long4 *)(&bcsrValuesA[(relativeIndex)*MMA_M *
+                                                      MMA_K * BLOCK * BLOCK +
+                                                  warp_id * MMA_M * MMA_K +
+                                                  (lane_id / 2) * MMA_K]) +
                            lane_id % 2)),
-                         sizeof(int4), pipe);
+                         sizeof(long4), pipe);
 
       // For matrix B
       if (lane_id < MMA_N * 2) { // Original condition preserved
         cuda::memcpy_async(
-            ((int4 *)(&B_smem[stage][warp_id_y][warp_id_x][(lane_id / 2)]
-                             [(ALIGNMENT_OFFSET)]) +
+            ((long4 *)(&B_smem[stage][warp_id_y][warp_id_x][(lane_id / 2)]
+                              [(ALIGNMENT_OFFSET)]) +
              lane_id % 2),
-            ((int4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
-                         (warp_col + warp_id_y * MMA_N + lane_id / 2) * K]) +
+            ((long4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
+                          (warp_col + warp_id_y * MMA_N + lane_id / 2) * K]) +
              lane_id % 2),
-            sizeof(int4), pipe);
+            sizeof(long4), pipe);
       }
 
       pipe.producer_commit();
@@ -205,14 +190,15 @@ mmaOBTKernelSparse_tiled_large(half *bcsrValuesA, int *bcsrRowPtrA,
   }
 }
 
-void mmaOBTKernel_tiled_large(half *bcsrValuesA, int *bcsrRowPtrA,
-                              int *bcsrColIdxA, half *B, half *C, size_t M,
-                              size_t N, size_t K, size_t nonzeroBlocks,
-                              int *blockInfo, int *relativeBlockIndexMapping) {
+void mmaOBTSKernel_tiled_large(half *bcsrValuesA, int *bcsrRowPtrA,
+                               int *bcsrColIdxA, half *B, half *C, size_t M,
+                               size_t N, size_t K, size_t nonzeroBlocks,
+                               int *blockInfo, int *relativeBlockIndexMapping,
+                               int *tileInfo) {
   dim3 block(WARP_SIZE * BLOCK * BLOCK);
   dim3 grid(div_ceil(N, MMA_N * BLOCK), div_ceil(M, MMA_M * BLOCK));
 
-  mmaOBTKernelSparse_tiled_large<<<grid, block>>>(
+  mmaOBTSKernelSparse_tiled_large<<<grid, block>>>(
       bcsrValuesA, bcsrRowPtrA, bcsrColIdxA, B, C, M, N, K, nonzeroBlocks,
-      blockInfo, relativeBlockIndexMapping);
+      blockInfo, relativeBlockIndexMapping, tileInfo);
 }

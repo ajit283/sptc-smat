@@ -23,6 +23,11 @@
   void name(half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA, half *B,    \
             half *C, size_t M, size_t N, size_t K, size_t nonzeroBlocks,       \
             int *blockInfo, int *relativeBlockIndexMapping)
+#define HGEMM_FUNC_SPARSE24_2_tiled(name)                                      \
+  void name(half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA,             \
+            char *metadata, half *sparseMatrixA, half *B, half *C, size_t M,   \
+            size_t N, size_t K, size_t nonzeroBlocks, int *blockInfo,          \
+            int *relativeBlockIndexMapping, int *tileInfo)
 
 HGEMM_FUNC(cublasTensorOp);
 
@@ -36,9 +41,9 @@ HGEMM_FUNC_SPARSE2(mmaBTKernel);
 HGEMM_FUNC_SPARSE2(mmaCBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled);
-HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled_large);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel_large);
+HGEMM_FUNC_SPARSE24_2_tiled(mmaOBTSKernel_tiled_large);
 
 void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
@@ -455,8 +460,6 @@ int main(int argc, char *argv[]) {
   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
   tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
   tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
-  tester.evaluateSparse2_tiled(mmaOBTKernel_tiled_large,
-                               "Mma-OBT-Kernel-tiled-large");
   // testBcsrBlocking();
 
   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
@@ -464,6 +467,10 @@ int main(int argc, char *argv[]) {
   tester.evaluateSparse24_2(mmaOBTSKernel_large,
                             preprocessing_mmaSTKernel_large,
                             "Mma-OBTS-Kernel-large", true);
+  // tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
+  //                                 preprocessing_mmaSTKernel_large,
+  //                                 "Mma-OBT-Kernel-tiled-large", true);
+  //                                 //still need to work on this
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 

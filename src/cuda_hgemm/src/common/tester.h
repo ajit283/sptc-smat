@@ -395,6 +395,8 @@ public:
     if (large) {
       A_matrix = m_A_sparse_large;
     }
+
+    A_matrix->bcsrBlocking();
     // warm up
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
@@ -420,6 +422,48 @@ public:
     }
 
     profileSparse24_2(std::forward<Func2>(hgemm), preprocess, name, large);
+  }
+  template <typename Func2, typename PreprocessFunc>
+  void evaluateSparse24_2_tiled(Func2 &&hgemm, PreprocessFunc &&preprocess,
+                                const std::string &name, bool large = false) {
+    HLOG("----------------- Sparse Evaluating 24 %s -----------------",
+         name.c_str());
+    auto [metadata, sparseMatrixA] =
+        getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
+    cudaDeviceSynchronize();
+    SparseMatrix *A_matrix = m_A_sparse;
+    if (large) {
+      A_matrix = m_A_sparse_large;
+    }
+
+    A_matrix->bcsrBlocking();
+    // warm up
+    struct timeval t1, t2;
+    gettimeofday(&t1, NULL);
+    for (size_t i = 0; i < m_warmup_iterations; ++i) {
+      hgemm(
+          m_A_sparse->getMergedBcsrValues(), m_A_sparse->getMergedBcsrRowPtr(),
+          m_A_sparse->getMergedBcsrColIdx(), m_B_for_sparse->getDevPtr(),
+          m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
+          m_C_for_sparse->getCol(), m_A_sparse->getCol(),
+          m_A_sparse->getNonzeroblocks(), m_A_sparse->getMergedBlockInfo_dev(),
+          m_A_sparse->getMergedRelativeBlockIndexMapping_dev(),
+          m_A_sparse->getMergedTileInfo_dev());
+    }
+    cudaDeviceSynchronize();
+    gettimeofday(&t2, NULL);
+    m_warmup_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 +
+                     (t2.tv_usec - t1.tv_usec) / 1000.0) /
+                    static_cast<double>(m_warmup_iterations);
+    HLOG("Warm up time: %.3f ms", m_warmup_time);
+
+    if (m_enable_sparse_check) {
+      m_C_for_sparse->moveToHost();
+      m_C_for_sparse->checkValue(m_base_for_sparse);
+    }
+
+    profileSparse24_2_tiled(std::forward<Func2>(hgemm), preprocess, name,
+                            large);
   }
 
   template <typename Func>
