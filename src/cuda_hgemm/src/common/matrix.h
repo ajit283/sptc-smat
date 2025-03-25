@@ -618,6 +618,7 @@ public:
       int aligned_x = col - (col % (BLOCK * mMMA_K));
       int aligned_y = row - (row % (BLOCK * MMA_M));
       bool partOfPreviousBlock = false;
+
       // check if there is a previous block that this would be part of
       for (auto e : blocks) {
         if (e.x == aligned_x && e.y == aligned_y) {
@@ -630,21 +631,22 @@ public:
             // int positionInBlock_y = (row - e.y) - ((row - e.y) % MMA_M);
             int positionInBlock_x = (col - e.x);
             int positionInBlock_y = (row - e.y);
-            // std::cout << "Position x: " << positionInBlock_x << std::endl;
-            // std::cout << "Position y: " << positionInBlock_y << std::endl;
-            // std::cout << "Dest offset: "
+            // std::cout << "Position x: " << positionInBlock_x <<
+            // std::endl; std::cout << "Position y: " << positionInBlock_y
+            // << std::endl; std::cout << "Dest offset: "
             //           << MMA_K * BLOCK * positionInBlock_y +
             //                  positionInBlock_x * MMA_M
             //           << std::endl;
-            // std::cout << "Source offset: " << i * MMA_M * MMA_K << std::endl;
+            // std::cout << "Source offset: " << i * MMA_M * MMA_K <<
+            // std::endl;
 
             memcpy(e.vals + mMMA_K * BLOCK * positionInBlock_y +
                        positionInBlock_x * MMA_M,
                    bcsrVal_host + i * MMA_M * mMMA_K,
                    sizeof(half) * MMA_M * mMMA_K);
 
-            e.sparsity[((positionInBlock_y) / MMA_M) * BLOCK *
-                       (positionInBlock_x) / MMA_K] = 1;
+            e.sparsity[((positionInBlock_y) / MMA_M) * BLOCK +
+                       (positionInBlock_x) / mMMA_K] = 1;
 
             // Print some values we just copied
             // for (int j = 0; j < 5; j++) {
@@ -687,10 +689,10 @@ public:
         //             << __half2float(vals[dest_offset + j]) << "\n";
         // }
 
-        int sparsity[BLOCK * BLOCK];
+        int *sparsity = (int *)calloc(BLOCK * BLOCK, sizeof(int));
 
-        sparsity[(positionInBlock_y / MMA_M) * BLOCK *
-                 (positionInBlock_x / MMA_K)] = 1;
+        sparsity[(positionInBlock_y / MMA_M) * BLOCK +
+                 (positionInBlock_x / mMMA_K)] = 1;
 
         Block block = {aligned_x, aligned_y, vals, sparsity};
         blocks.push_back(block);

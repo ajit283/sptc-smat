@@ -443,7 +443,8 @@ public:
     for (size_t i = 0; i < m_warmup_iterations; ++i) {
       hgemm(
           m_A_sparse->getMergedBcsrValues(), m_A_sparse->getMergedBcsrRowPtr(),
-          m_A_sparse->getMergedBcsrColIdx(), m_B_for_sparse->getDevPtr(),
+          m_A_sparse->getMergedBcsrColIdx(), (char *)(metadata->getDevPtr()),
+          sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
           m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
           m_C_for_sparse->getCol(), m_A_sparse->getCol(),
           m_A_sparse->getNonzeroblocks(), m_A_sparse->getMergedBlockInfo_dev(),
@@ -707,6 +708,7 @@ private:
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
   }
+
   template <typename Func, typename PreprocessFunc>
   void profileSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
                        const std::string &name, bool large) {
@@ -788,6 +790,66 @@ private:
             m_C_for_sparse->getCol(), m_A_sparse->getCol(),
             m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
             m_A_sparse->getRelativeBlockIndexMapping_dev());
+    }
+    cudaDeviceSynchronize();
+    gettimeofday(&t2, NULL);
+    // m_profiling_time = static_cast<double>(m_cuda_timer.end()) /
+    // static_cast<double>(m_profiling_iterations);
+    m_profiling_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 +
+                        (t2.tv_usec - t1.tv_usec) / 1000.0) /
+                       static_cast<double>(m_profiling_iterations);
+
+    // m_profiling_time = static_cast<double>(m_cuda_timer.end()) /
+    // static_cast<double>(m_profiling_iterations);
+    int k = 16;
+    if (large) {
+      k = 32;
+    }
+    m_throughput =
+        static_cast<double>(A_matrix->getNonzeroblocks() * MMA_M * k * 2) *
+        1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+
+    if ((std::abs(m_base_time) <= 1e-6) &&
+        (std::abs(m_base_throughput) <= 1e-6)) {
+      m_base_time = m_profiling_time;
+      m_base_throughput = m_throughput;
+    }
+
+    FILE *fout;
+    fout = fopen("results_smat.csv", "a");
+    fprintf(fout, "%s, %lf\n", m_file.data(), m_profiling_time);
+    fclose(fout);
+    HLOG("%s exit, profiling time: %.3f ms (%.2f%%), throughput: %.3f TFLOPS "
+         "(%.2f%%)",
+         name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
+         m_throughput, m_throughput / m_base_throughput * 100);
+  }
+  template <typename Func, typename PreprocessFunc>
+  void profileSparse24_2_tiled(Func &&hgemm, PreprocessFunc &&preprocess,
+                               const std::string &name, bool large) {
+
+    auto [metadata, sparseMatrixA] =
+        getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
+    cudaDeviceSynchronize();
+
+    SparseMatrix *A_matrix = m_A_sparse;
+    if (large) {
+      A_matrix = m_A_sparse_large;
+    }
+
+    // m_cuda_timer.start();
+    struct timeval t1, t2;
+    gettimeofday(&t1, NULL);
+    for (size_t i = 0; i < m_profiling_iterations; ++i) {
+      hgemm(
+          m_A_sparse->getMergedBcsrValues(), m_A_sparse->getMergedBcsrRowPtr(),
+          m_A_sparse->getMergedBcsrColIdx(), (char *)(metadata->getDevPtr()),
+          sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
+          m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
+          m_C_for_sparse->getCol(), m_A_sparse->getCol(),
+          m_A_sparse->getNonzeroblocks(), m_A_sparse->getMergedBlockInfo_dev(),
+          m_A_sparse->getMergedRelativeBlockIndexMapping_dev(),
+          m_A_sparse->getMergedTileInfo_dev());
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);

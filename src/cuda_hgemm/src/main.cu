@@ -54,6 +54,11 @@ void preprocessing_mmaSTKernel_large(half *bcsrValuesA, char *metadata,
                                      size_t K, size_t nonzeroBlocks,
                                      int *blockInfo,
                                      int *relativeBlockIndexMapping);
+void preprocessing_mmaOBTKernel_large(half *bcsrValuesA, char *metadata,
+                                      half *sparseMatrixA, size_t M, size_t N,
+                                      size_t K, size_t nonzeroBlocks,
+                                      int *blockInfo,
+                                      int *relativeBlockIndexMapping);
 
 // DEFINE_uint32(M, 16384, "M");
 // DEFINE_uint32(N, 8, "N");
@@ -446,31 +451,31 @@ int main(int argc, char *argv[]) {
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
                 FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
-  tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
-  tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-  // tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
-  tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
-                          "Mma-ST-Kernel");
-  tester.evaluateSparse24(mmaSTKernel_large, preprocessing_mmaSTKernel_large,
-                          "Mma-ST-Kernel-large", true);
+  // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
+  // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  // tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+  // // tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  // tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
+  //                         "Mma-ST-Kernel");
+  // tester.evaluateSparse24(mmaSTKernel_large, preprocessing_mmaSTKernel_large,
+  //                         "Mma-ST-Kernel-large", true);
 
-  tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
-  tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
-  // testBcsrBlocking();
+  // tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
+  // tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+  // tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  // // testBcsrBlocking();
 
-  tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
-                            "Mma-OBTS-Kernel");
-  tester.evaluateSparse24_2(mmaOBTSKernel_large,
-                            preprocessing_mmaSTKernel_large,
-                            "Mma-OBTS-Kernel-large", true);
-  // tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
-  //                                 preprocessing_mmaSTKernel_large,
-  //                                 "Mma-OBT-Kernel-tiled-large", true);
-  //                                 //still need to work on this
+  // tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
+  //                           "Mma-OBTS-Kernel");
+  // tester.evaluateSparse24_2(mmaOBTSKernel_large,
+  //                           preprocessing_mmaSTKernel_large,
+  //                           "Mma-OBTS-Kernel-large", true);
+  tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
+                                  preprocessing_mmaOBTKernel_large,
+                                  "Mma-OBTS-Kernel-tiled-large", true);
+  // still need to work on this
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
 
