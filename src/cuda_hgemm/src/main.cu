@@ -36,6 +36,7 @@ HGEMM_FUNC_SPARSE2(mmaBTKernel);
 HGEMM_FUNC_SPARSE2(mmaCBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled);
+HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled_large);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel_large);
 
@@ -440,20 +441,22 @@ int main(int argc, char *argv[]) {
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
                 FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
-  // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
-  // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  //   tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-  //  tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
+  tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
+  tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+  // tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
   tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
                           "Mma-ST-Kernel");
   tester.evaluateSparse24(mmaSTKernel_large, preprocessing_mmaSTKernel_large,
                           "Mma-ST-Kernel-large", true);
 
-  //   //   tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
-  //   tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  //   tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
+  tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+  tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
   tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  tester.evaluateSparse2_tiled(mmaOBTKernel_tiled_large,
+                               "Mma-OBT-Kernel-tiled-large");
   // testBcsrBlocking();
 
   tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
