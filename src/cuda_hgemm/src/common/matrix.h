@@ -18,7 +18,7 @@
 #define MMA_N 8
 // #define MMA_K 32
 
-#define BLOCK 4
+#define BLOCK 2
 
 class Matrix {
 public:
@@ -808,11 +808,80 @@ public:
     mergedRelativeBlockIndexMapping_host =
         (int *)malloc(numRowRegions * numColRegions * sizeof(int));
 
+    // --- Replace the old mergedTileInfo_host assignment with the following
+    // code ---
+    // Previously:
+    // mergedTileInfo_host = (int *)malloc(blocks.size() * BLOCK * BLOCK *
+    // sizeof(int)); memcpy(mergedTileInfo_host, sparsity_tile.data(),
+    // sparsity_tile.size() * sizeof(int));
+
+    // New code: compute mergedTileInfo per subblock (each subblock is MMA_M x
+    // mMMA_K, e.g., 16x32)
     mergedTileInfo_host =
         (int *)malloc(blocks.size() * BLOCK * BLOCK * sizeof(int));
+    int mergedBlocks = blocks.size();
 
-    memcpy(mergedTileInfo_host, sparsity_tile.data(),
-           sparsity_tile.size() * sizeof(int));
+    for (int i = 0; i < mergedBlocks; i++) {
+      // Each merged block has dimensions (BLOCK * MMA_M) x (BLOCK * mMMA_K)
+      // Get pointer to the start of this merged block in mergedBcsrVal_host.
+      half *mergedBlockVal =
+          mergedBcsrVal_host + i * (BLOCK * MMA_M) * (BLOCK * mMMA_K);
+
+      // Iterate over each subblock (tile) within the merged block.
+      // Subblocks are arranged in a BLOCK x BLOCK grid.
+      for (int sb_r = 0; sb_r < BLOCK; sb_r++) {
+        for (int sb_c = 0; sb_c < BLOCK; sb_c++) {
+          bool allZero = true;
+          bool followsTwoFour = true;
+
+          // Compute the starting row and column (within the merged block) for
+          // this subblock.
+          int subblockStartRow = sb_r * MMA_M;
+          int subblockStartCol = sb_c * mMMA_K;
+
+          // Process each row in the subblock.
+          for (int r = 0; r < MMA_M; r++) {
+            // The row in the merged block:
+            int rowIdx = subblockStartRow + r;
+            // Pointer to the beginning of this row in the merged block.
+            half *rowPtr = mergedBlockVal + rowIdx * (BLOCK * mMMA_K);
+
+            // Process the row in groups of 4 (assumes mMMA_K is divisible by 4)
+            for (int g = 0; g < mMMA_K / 4; g++) {
+              int nonzeroCount = 0;
+              for (int c = 0; c < 4; c++) {
+                half val = rowPtr[subblockStartCol + g * 4 + c];
+                // A simple nonzero check; adjust if your half type requires a
+                // different test.
+                if (val != __float2half(0.0f)) {
+                  nonzeroCount++;
+                }
+              }
+              // If any group has nonzero entries, the row is not all zero.
+              if (nonzeroCount > 0) {
+                allZero = false;
+              }
+              // In 2:4 sparsity a nonzero group must have exactly 2 nonzeros.
+              if (nonzeroCount != 0 && nonzeroCount != 2) {
+                followsTwoFour = false;
+              }
+            }
+          }
+
+          // Determine the subblock type.
+          // 0: entirely zero, 1: 2:4 sparse, 2: dense (not following 2:4)
+          int tileType = 0;
+          if (!allZero) {
+            tileType = followsTwoFour ? 1 : 2;
+          }
+
+          // Save in row-major order: the subblock index is (sb_r * BLOCK +
+          // sb_c)
+          mergedTileInfo_host[i * (BLOCK * BLOCK) + (sb_r * BLOCK + sb_c)] =
+              tileType;
+        }
+      }
+    }
 
     // Copy from vectors to flat arrays
     for (size_t i = 0; i < numRowRegions; i++) {

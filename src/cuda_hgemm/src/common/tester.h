@@ -360,15 +360,16 @@ public:
     size_t nonzeroBlocks = A_matrix->getNonzeroblocks();
     HLOG("%d nonzero blocks", nonzeroBlocks);
 
-    size_t metadata_size = nonzeroBlocks * MMA_M * (k / 8) / sizeof(half);
+    size_t metadata_size =
+        nonzeroBlocks * MMA_M * BLOCK * BLOCK * (k / 8) / sizeof(half);
     auto metadata =
         std::make_unique<Matrix>(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata.get());
     metadata->memSetHost();
     metadata->moveToDevice();
 
-    size_t sparseMatrixA_size =
-        nonzeroBlocks * MMA_M * (k / 8) * sizeof(int2) / sizeof(half);
+    size_t sparseMatrixA_size = nonzeroBlocks * MMA_M * (k / 8) * BLOCK *
+                                BLOCK * sizeof(int2) / sizeof(half);
     auto sparseMatrixA =
         std::make_unique<Matrix>(sparseMatrixA_size, 1, "Sparse Matrix A");
     HGEMM_CHECK(sparseMatrixA.get());
@@ -485,20 +486,19 @@ public:
       A_matrix = m_A_sparse_large;
     }
 
-    A_matrix->bcsrBlocking();
+    // A_matrix->bcsrBlocking();
     // warm up
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (size_t i = 0; i < m_warmup_iterations; ++i) {
-      hgemm(
-          m_A_sparse->getMergedBcsrValues(), m_A_sparse->getMergedBcsrRowPtr(),
-          m_A_sparse->getMergedBcsrColIdx(), (char *)(metadata->getDevPtr()),
-          sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-          m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-          m_C_for_sparse->getCol(), m_A_sparse->getCol(),
-          m_A_sparse->getNonzeroblocks(), m_A_sparse->getMergedBlockInfo_dev(),
-          m_A_sparse->getMergedRelativeBlockIndexMapping_dev(),
-          m_A_sparse->getMergedTileInfo_dev());
+      hgemm(A_matrix->getMergedBcsrValues(), A_matrix->getMergedBcsrRowPtr(),
+            A_matrix->getMergedBcsrColIdx(), (char *)(metadata->getDevPtr()),
+            sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
+            m_C_for_sparse->getDevPtr(), A_matrix->getRow(),
+            m_C_for_sparse->getCol(), A_matrix->getCol(),
+            A_matrix->getNonzeroblocks(), A_matrix->getMergedBlockInfo_dev(),
+            A_matrix->getMergedRelativeBlockIndexMapping_dev(),
+            A_matrix->getMergedTileInfo_dev());
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);
@@ -890,15 +890,14 @@ private:
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (size_t i = 0; i < m_profiling_iterations; ++i) {
-      hgemm(
-          m_A_sparse->getMergedBcsrValues(), m_A_sparse->getMergedBcsrRowPtr(),
-          m_A_sparse->getMergedBcsrColIdx(), (char *)(metadata->getDevPtr()),
-          sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-          m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-          m_C_for_sparse->getCol(), m_A_sparse->getCol(),
-          m_A_sparse->getNonzeroblocks(), m_A_sparse->getMergedBlockInfo_dev(),
-          m_A_sparse->getMergedRelativeBlockIndexMapping_dev(),
-          m_A_sparse->getMergedTileInfo_dev());
+      hgemm(A_matrix->getMergedBcsrValues(), A_matrix->getMergedBcsrRowPtr(),
+            A_matrix->getMergedBcsrColIdx(), (char *)(metadata->getDevPtr()),
+            sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
+            m_C_for_sparse->getDevPtr(), A_matrix->getRow(),
+            m_C_for_sparse->getCol(), A_matrix->getCol(),
+            A_matrix->getNonzeroblocks(), A_matrix->getMergedBlockInfo_dev(),
+            A_matrix->getMergedRelativeBlockIndexMapping_dev(),
+            A_matrix->getMergedTileInfo_dev());
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);
