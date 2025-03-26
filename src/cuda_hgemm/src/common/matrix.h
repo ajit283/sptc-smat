@@ -583,292 +583,151 @@ public:
       int x;
       int y;
       half *vals;
-      int *
-          tileInfo; // Array of BLOCK*BLOCK ints (0=zero, 1=2:4 sparse, 2=dense)
+      int *sparsity;
     };
     int size = nonzeroBlocks;
     std::vector<Block> blocks;
     blocks.reserve(size);
 
-    // Print debug info
-    printf("Starting bcsrBlocking with %d nonzero blocks\n", size);
-    printf("Matrix dimensions: %zu x %zu\n", m_row, m_col);
+    // std::cout << "Starting with size: " << size << std::endl;
 
     size_t numColRegions = (m_col + (mMMA_K * BLOCK) - 1) / (mMMA_K * BLOCK);
     size_t numRowRegions = (m_row + (MMA_M * BLOCK) - 1) / (MMA_M * BLOCK);
-
-    printf("numColRegions: %zu, numRowRegions: %zu\n", numColRegions,
-           numRowRegions);
 
     std::vector<std::vector<int>> mergedBlockInfo(
         numRowRegions, std::vector<int>(numColRegions, 0));
 
     for (int i = 0; i < size; i++) {
-      // Safety check
-      if (i % 1000 == 0) {
-        printf("Processing block %d of %d\n", i, size);
-      }
+      // std::cout << "Processing i=" << i << std::endl;
+
+      // int row = 0;
+      // while (row < m_row / MMA_M && bcsrRowPtr_host[row + 1] <= i) {
+      //   row++;
+      // }
 
       int blockRow = 0;
-      // Safe access to bcsrRowPtr_host
-      if (m_row / MMA_M > 0) {
-        while (blockRow < m_row / MMA_M && bcsrRowPtr_host[blockRow + 1] <= i) {
-          blockRow++;
-        }
+      while (blockRow < m_row / MMA_M && bcsrRowPtr_host[blockRow + 1] <= i) {
+        blockRow++;
       }
       int row = blockRow * MMA_M; // Convert block row to actual row number
 
-      // Safety check for i
-      if (i < 0 || i >= nonzeroBlocks) {
-        printf("Error: index i=%d out of bounds (nonzeroBlocks=%d)\n", i,
-               nonzeroBlocks);
-        continue;
-      }
+      // std::cout << "Found row: " << row << std::endl;
+      // std::cout << "Accessing colIdx at " << i << std::endl;
 
       int col = bcsrColIdx_host[i];
-
-      // Bounds check
-      if (row >= m_row || col >= m_col) {
-        printf(
-            "Warning: row=%d or col=%d out of bounds (m_row=%zu, m_col=%zu)\n",
-            row, col, m_row, m_col);
-        continue;
-      }
+      // std::cout << "Col is: " << col << std::endl;
 
       int aligned_x = col - (col % (BLOCK * mMMA_K));
       int aligned_y = row - (row % (BLOCK * MMA_M));
       bool partOfPreviousBlock = false;
 
-      // Safer iteration through blocks
-      for (size_t b = 0; b < blocks.size(); b++) {
-        Block &e = blocks[b];
+      // check if there is a previous block that this would be part of
+      for (auto e : blocks) {
         if (e.x == aligned_x && e.y == aligned_y) {
-          partOfPreviousBlock = true;
-          int positionInBlock_x = (col - e.x);
-          int positionInBlock_y = (row - e.y);
+          {
+            partOfPreviousBlock = true;
+            // std::cout << "col: " << col << " e.x: " << e.x
+            //           << " diff: " << (col - e.x)
+            //           << " mod: " << ((col - e.x) % MMA_K) << std::endl;
+            // int positionInBlock_x = (col - e.x) - ((col - e.x) % MMA_K);
+            // int positionInBlock_y = (row - e.y) - ((row - e.y) % MMA_M);
+            int positionInBlock_x = (col - e.x);
+            int positionInBlock_y = (row - e.y);
+            // std::cout << "Position x: " << positionInBlock_x <<
+            // std::endl; std::cout << "Position y: " << positionInBlock_y
+            // << std::endl; std::cout << "Dest offset: "
+            //           << MMA_K * BLOCK * positionInBlock_y +
+            //                  positionInBlock_x * MMA_M
+            //           << std::endl;
+            // std::cout << "Source offset: " << i * MMA_M * MMA_K <<
+            // std::endl;
 
-          // Bounds check
-          if (positionInBlock_x < 0 || positionInBlock_x >= BLOCK * mMMA_K ||
-              positionInBlock_y < 0 || positionInBlock_y >= BLOCK * MMA_M) {
-            printf("Warning: position in block (%d,%d) out of bounds\n",
-                   positionInBlock_y, positionInBlock_x);
-            continue;
+            memcpy(e.vals + mMMA_K * BLOCK * positionInBlock_y +
+                       positionInBlock_x * MMA_M,
+                   bcsrVal_host + i * MMA_M * mMMA_K,
+                   sizeof(half) * MMA_M * mMMA_K);
+
+            e.sparsity[((positionInBlock_y) / MMA_M) * BLOCK +
+                       (positionInBlock_x) / mMMA_K] = 1;
+
+            // Print some values we just copied
+            // for (int j = 0; j < 5; j++) {
+            //   std::cout << "Value at " << j << ": "
+            //             << __half2float(
+            //                    e.vals[MMA_K * BLOCK * positionInBlock_y +
+            //                           positionInBlock_x + j])
+            //             << "\n";
+            // }
+            // std::cout << "done" << std::endl;
+            break;
           }
-
-          // Bounds check for source
-          if (i * MMA_M * mMMA_K + MMA_M * mMMA_K >
-              nonzeroBlocks * MMA_M * mMMA_K) {
-            printf("Warning: Source index out of bounds\n");
-            continue;
-          }
-
-          // Calculate destination offset
-          size_t dest_offset =
-              mMMA_K * BLOCK * positionInBlock_y + positionInBlock_x * MMA_M;
-          if (dest_offset + MMA_M * mMMA_K > BLOCK * BLOCK * MMA_M * mMMA_K) {
-            printf("Warning: Destination offset %zu out of bounds\n",
-                   dest_offset);
-            continue;
-          }
-
-          // Copy values to the block
-          memcpy(e.vals + dest_offset, bcsrVal_host + i * MMA_M * mMMA_K,
-                 sizeof(half) * MMA_M * mMMA_K);
-
-          // Calculate the subtile index
-          int subtile_x = positionInBlock_x / mMMA_K;
-          int subtile_y = positionInBlock_y / MMA_M;
-          int subtile_idx = subtile_y * BLOCK + subtile_x;
-
-          // Bounds check for subtile index
-          if (subtile_idx < 0 || subtile_idx >= BLOCK * BLOCK) {
-            printf("Warning: subtile_idx %d out of bounds\n", subtile_idx);
-            continue;
-          }
-
-          // If this subtile was previously marked as zero, mark it as sparse
-          // initially
-          if (e.tileInfo[subtile_idx] == 0) {
-            e.tileInfo[subtile_idx] = 1; // Initially mark as sparse
-          }
-
-          // Check if this subtile should be marked as dense
-          if (e.tileInfo[subtile_idx] == 1) { // Only check if currently sparse
-            // Calculate subtile data pointer with bounds checking
-            size_t subtile_offset = mMMA_K * BLOCK * (subtile_y * MMA_M) +
-                                    subtile_x * mMMA_K * MMA_M;
-            if (subtile_offset + MMA_M * mMMA_K >
-                BLOCK * BLOCK * MMA_M * mMMA_K) {
-              printf("Warning: Subtile offset %zu out of bounds\n",
-                     subtile_offset);
-              continue;
-            }
-
-            half *subtile_data = e.vals + subtile_offset;
-
-            // Examine each row in the subtile
-            for (int r = 0; r < MMA_M; r++) {
-              // For each row, check each group of 4 columns
-              for (int g = 0; g < mMMA_K / 4; g++) {
-                int nonzero_count = 0;
-                // Count non-zeros in this group of 4
-                for (int k = 0; k < 4; k++) {
-                  size_t elem_offset = r * mMMA_K * BLOCK + g * 4 + k;
-                  if (elem_offset >= MMA_M * mMMA_K * BLOCK) {
-                    printf("Warning: Element offset %zu out of bounds\n",
-                           elem_offset);
-                    continue;
-                  }
-
-                  half val = subtile_data[elem_offset];
-                  if (val != (half)0.0f) {
-                    nonzero_count++;
-                  }
-                }
-                // If more than 2 non-zeros in a group, this violates 2:4
-                // sparsity
-                if (nonzero_count > 2) {
-                  e.tileInfo[subtile_idx] = 2; // Mark as dense
-                  break;
-                }
-              }
-              if (e.tileInfo[subtile_idx] == 2)
-                break; // Already dense, stop checking
-            }
-          }
-          break;
         }
       }
-
       if (!partOfPreviousBlock) {
+        // std::cout << "Creating new block at (" << aligned_y << "," <<
+        // aligned_x
+        //           << ")\n";
         int positionInBlock_x = (col % (BLOCK * mMMA_K));
         int positionInBlock_y = (row % (BLOCK * MMA_M));
+        // std::cout << "Position in block: (" << positionInBlock_y << ","
+        //           << positionInBlock_x << ")\n";
 
-        // Allocate memory with null checks
         half *vals =
             (half *)calloc(BLOCK * BLOCK * MMA_M * mMMA_K, sizeof(half));
-        if (!vals) {
-          printf("Error: Failed to allocate vals memory\n");
-          continue;
-        }
-
-        int *tileInfo =
-            (int *)calloc(BLOCK * BLOCK, sizeof(int)); // Initialize all to zero
-        if (!tileInfo) {
-          printf("Error: Failed to allocate tileInfo memory\n");
-          free(vals);
-          continue;
-        }
-
-        // Check bounds for destination
         size_t dest_offset =
             positionInBlock_y * mMMA_K * BLOCK + positionInBlock_x;
-        if (dest_offset + MMA_M * mMMA_K > BLOCK * BLOCK * MMA_M * mMMA_K) {
-          printf("Warning: Destination offset %zu out of bounds\n",
-                 dest_offset);
-          free(vals);
-          free(tileInfo);
-          continue;
-        }
-
-        // Check bounds for source
         size_t src_offset = i * MMA_M * mMMA_K;
-        if (src_offset + MMA_M * mMMA_K > nonzeroBlocks * MMA_M * mMMA_K) {
-          printf("Warning: Source offset %zu out of bounds\n", src_offset);
-          free(vals);
-          free(tileInfo);
-          continue;
-        }
-
+        // std::cout << "Copying " << MMA_M * MMA_K << " values from offset "
+        //           << src_offset << " to offset " << dest_offset << "\n";
         memcpy(vals + dest_offset, bcsrVal_host + src_offset,
                MMA_M * mMMA_K * sizeof(half));
 
-        // Check mergedBlockInfo bounds
-        size_t merged_y = aligned_y / (BLOCK * MMA_M);
-        size_t merged_x = aligned_x / (BLOCK * mMMA_K);
-        if (merged_y >= numRowRegions || merged_x >= numColRegions) {
-          printf("Warning: mergedBlockInfo index [%zu][%zu] out of bounds\n",
-                 merged_y, merged_x);
-          free(vals);
-          free(tileInfo);
-          continue;
-        }
+        mergedBlockInfo.at(aligned_y / (BLOCK * MMA_M))
+            .at(aligned_x / (BLOCK * mMMA_K)) = 1;
 
-        mergedBlockInfo.at(merged_y).at(merged_x) = 1;
+        // Print some values we just copied
+        // for (int j = 0; j < 5; j++) {
+        //   std::cout << "Value at " << j << ": "
+        //             << __half2float(vals[dest_offset + j]) << "\n";
+        // }
 
-        // Calculate the subtile index
-        int subtile_x = positionInBlock_x / mMMA_K;
-        int subtile_y = positionInBlock_y / MMA_M;
-        int subtile_idx = subtile_y * BLOCK + subtile_x;
+        int *sparsity = (int *)calloc(BLOCK * BLOCK, sizeof(int));
 
-        // Bounds check for subtile index
-        if (subtile_idx < 0 || subtile_idx >= BLOCK * BLOCK) {
-          printf("Warning: subtile_idx %d out of bounds\n", subtile_idx);
-          free(vals);
-          free(tileInfo);
-          continue;
-        }
+        sparsity[(positionInBlock_y / MMA_M) * BLOCK +
+                 (positionInBlock_x / mMMA_K)] = 1;
 
-        // Mark this subtile as sparse initially
-        tileInfo[subtile_idx] = 1;
-
-        // Check if this subtile should be marked as dense
-        // Calculate subtile data pointer with bounds checking
-        size_t subtile_offset =
-            mMMA_K * BLOCK * (subtile_y * MMA_M) + subtile_x * mMMA_K * MMA_M;
-        if (subtile_offset + MMA_M * mMMA_K > BLOCK * BLOCK * MMA_M * mMMA_K) {
-          printf("Warning: Subtile offset %zu out of bounds\n", subtile_offset);
-          free(vals);
-          free(tileInfo);
-          continue;
-        }
-
-        half *subtile_data = vals + subtile_offset;
-
-        // Examine each row in the subtile
-        for (int r = 0; r < MMA_M; r++) {
-          // For each row, check each group of 4 columns
-          for (int g = 0; g < mMMA_K / 4; g++) {
-            int nonzero_count = 0;
-            // Count non-zeros in this group of 4
-            for (int k = 0; k < 4; k++) {
-              size_t elem_offset = r * mMMA_K * BLOCK + g * 4 + k;
-              if (elem_offset >= MMA_M * mMMA_K * BLOCK) {
-                printf("Warning: Element offset %zu out of bounds\n",
-                       elem_offset);
-                continue;
-              }
-
-              half val = subtile_data[elem_offset];
-              if (val != (half)0.0f) {
-                nonzero_count++;
-              }
-            }
-            // If more than 2 non-zeros in a group, this violates 2:4 sparsity
-            if (nonzero_count > 2) {
-              tileInfo[subtile_idx] = 2; // Mark as dense
-              break;
-            }
-          }
-          if (tileInfo[subtile_idx] == 2)
-            break; // Already dense, stop checking
-        }
-
-        Block block = {aligned_x, aligned_y, vals, tileInfo};
+        Block block = {aligned_x, aligned_y, vals, sparsity};
         blocks.push_back(block);
       }
+      // for (int b = 0; b < blocks.size(); b++) {
+      //   // std::cout << "Block " << b << " after iteration:\n";
+      //   for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
+      //     std::cout << __half2float(blocks[b].vals[j]) << " ";
+      //   }
+      //   std::cout << "\n";
+      // }
+      // std::cout << "Block pointer address for block " << blocks.size() - 1
+      //           << ": " << (void *)blocks.back().vals << "\n";
+
+      // std::cout << "-----------------------------" << std::endl;
     }
 
-    printf("Created %zu blocks\n", blocks.size());
+    // print each block
+    // for (int i = 0; i < blocks.size(); i++) {
+    //   std::cout << "Block " << i << ":\n";
+    //   for (int j = 0; j < BLOCK * BLOCK * MMA_M * MMA_K; j++) {
+    //     std::cout << __half2float(blocks[i].vals[j]) << " ";
+    //   }
+    //   std::cout << "\n";
+    // }
 
     std::vector<int> rowPtr;
     std::vector<int> colIdx;
     std::vector<half> values;
-    std::vector<int> sparsity_tile; // Will contain all tileInfo values
+    std::vector<half> sparsity_tile;
 
     std::vector<std::vector<int>> mergedRelativeBlockIndexMapping(
-        numRowRegions,
-        std::vector<int>(numColRegions, -1)); // Initialize with -1
+        numRowRegions, std::vector<int>(numColRegions, 0));
 
     int relativeIndex = 0;
 
@@ -879,10 +738,12 @@ public:
       }
     }
 
+    // Initialize rowPtr
+    // rowPtr.push_back(0);
     int currentRow = -1;
 
     // Build BCSR format
-    for (size_t i = 0; i < blocks.size(); i++) {
+    for (int i = 0; i < blocks.size(); i++) {
       // New row detection
       if (currentRow != blocks[i].y) {
         currentRow = blocks[i].y;
@@ -896,207 +757,64 @@ public:
       for (int j = 0; j < BLOCK * BLOCK * MMA_M * mMMA_K; j++) {
         values.push_back(blocks[i].vals[j]);
       }
-
-      // Add tileInfo for this block
-      for (int j = 0; j < BLOCK * BLOCK; j++) {
-        sparsity_tile.push_back(blocks[i].tileInfo[j]);
-      }
     }
 
+    for (int i = 0; i < blocks.size(); i++) {
+      for (int j = 0; j < BLOCK * BLOCK; j++) {
+        sparsity_tile.push_back(blocks[i].sparsity[j]);
+      }
+    }
     // Add final rowPtr entry
     rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
+    // rowPtr.push_back(blocks.size());
 
     mergedNonzeroBlocks = blocks.size();
 
-    printf("Building merged arrays\n");
-
-    // Allocate host memory with null checks
+    // Allocate host memory
     mergedBcsrVal_host = (half *)calloc(values.size(), sizeof(half));
-    if (!mergedBcsrVal_host) {
-      printf("Error: Failed to allocate mergedBcsrVal_host\n");
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
-
     mergedBcsrRowPtr_host = (int *)malloc(rowPtr.size() * sizeof(int));
-    if (!mergedBcsrRowPtr_host) {
-      printf("Error: Failed to allocate mergedBcsrRowPtr_host\n");
-      free(mergedBcsrVal_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
-
     mergedBcsrColIdx_host = (int *)malloc(colIdx.size() * sizeof(int));
-    if (!mergedBcsrColIdx_host) {
-      printf("Error: Failed to allocate mergedBcsrColIdx_host\n");
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
 
     // Copy data to host arrays
-    printf("Copying data to host arrays\n");
     memcpy(mergedBcsrVal_host, values.data(), values.size() * sizeof(half));
     memcpy(mergedBcsrRowPtr_host, rowPtr.data(), rowPtr.size() * sizeof(int));
     memcpy(mergedBcsrColIdx_host, colIdx.data(), colIdx.size() * sizeof(int));
 
     // Allocate device memory
-    printf("Allocating device memory\n");
-    cudaError_t cuda_status;
-
-    cuda_status =
-        cudaMalloc((void **)&mergedBcsrVal_dev, values.size() * sizeof(half));
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMalloc failed for mergedBcsrVal_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
-
-    cuda_status =
-        cudaMalloc((void **)&mergedBcsrRowPtr_dev, rowPtr.size() * sizeof(int));
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMalloc failed for mergedBcsrRowPtr_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-      cudaFree(mergedBcsrVal_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
-
-    cuda_status =
-        cudaMalloc((void **)&mergedBcsrColIdx_dev, colIdx.size() * sizeof(int));
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMalloc failed for mergedBcsrColIdx_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-      cudaFree(mergedBcsrVal_dev);
-      cudaFree(mergedBcsrRowPtr_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&mergedBcsrVal_dev, values.size() * sizeof(half)));
+    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&mergedBcsrRowPtr_dev,
+                                        rowPtr.size() * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&mergedBcsrColIdx_dev,
+                                        colIdx.size() * sizeof(int)));
 
     // Copy to device
-    printf("Copying data to device\n");
-    cuda_status =
-        cudaMemcpy(mergedBcsrVal_dev, mergedBcsrVal_host,
-                   values.size() * sizeof(half), cudaMemcpyHostToDevice);
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMemcpy failed for mergedBcsrVal_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-    }
-
-    cuda_status =
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(mergedBcsrVal_dev, mergedBcsrVal_host,
+                                        values.size() * sizeof(half),
+                                        cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(
         cudaMemcpy(mergedBcsrRowPtr_dev, mergedBcsrRowPtr_host,
-                   rowPtr.size() * sizeof(int), cudaMemcpyHostToDevice);
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMemcpy failed for mergedBcsrRowPtr_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-    }
-
-    cuda_status =
+                   rowPtr.size() * sizeof(int), cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(
         cudaMemcpy(mergedBcsrColIdx_dev, mergedBcsrColIdx_host,
-                   colIdx.size() * sizeof(int), cudaMemcpyHostToDevice);
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMemcpy failed for mergedBcsrColIdx_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-    }
+                   colIdx.size() * sizeof(int), cudaMemcpyHostToDevice));
 
-    // Allocate memory for blockInfo, relativeBlockIndexMapping, and tileInfo
-    printf("Allocating host memory for block info\n");
     mergedBlockInfo_host =
         (int *)malloc(numRowRegions * numColRegions * sizeof(int));
-    if (!mergedBlockInfo_host) {
-      printf("Error: Failed to allocate mergedBlockInfo_host\n");
-      cudaFree(mergedBcsrVal_dev);
-      cudaFree(mergedBcsrRowPtr_dev);
-      cudaFree(mergedBcsrColIdx_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
-
     mergedRelativeBlockIndexMapping_host =
         (int *)malloc(numRowRegions * numColRegions * sizeof(int));
-    if (!mergedRelativeBlockIndexMapping_host) {
-      printf(
-          "Error: Failed to allocate mergedRelativeBlockIndexMapping_host\n");
-      cudaFree(mergedBcsrVal_dev);
-      cudaFree(mergedBcsrRowPtr_dev);
-      cudaFree(mergedBcsrColIdx_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      free(mergedBlockInfo_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
 
     mergedTileInfo_host =
         (int *)malloc(blocks.size() * BLOCK * BLOCK * sizeof(int));
-    if (!mergedTileInfo_host) {
-      printf("Error: Failed to allocate mergedTileInfo_host\n");
-      cudaFree(mergedBcsrVal_dev);
-      cudaFree(mergedBcsrRowPtr_dev);
-      cudaFree(mergedBcsrColIdx_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      free(mergedBlockInfo_host);
-      free(mergedRelativeBlockIndexMapping_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
-
-    // Copy tileInfo data
-    printf("Copying tileInfo data\n");
-    if (sparsity_tile.size() != blocks.size() * BLOCK * BLOCK) {
-      printf("Warning: sparsity_tile size mismatch, expected=%zu, actual=%zu\n",
-             blocks.size() * BLOCK * BLOCK, sparsity_tile.size());
-    }
 
     memcpy(mergedTileInfo_host, sparsity_tile.data(),
            sparsity_tile.size() * sizeof(int));
 
     // Copy from vectors to flat arrays
-    printf("Copying block mapping data\n");
     for (size_t i = 0; i < numRowRegions; i++) {
       for (size_t j = 0; j < numColRegions; j++) {
         mergedBlockInfo_host[i * numColRegions + j] = mergedBlockInfo[i][j];
@@ -1105,111 +823,35 @@ public:
       }
     }
 
-    // Allocate device memory for block info
-    printf("Allocating device memory for block info\n");
-    cuda_status = cudaMalloc((void **)&mergedBlockInfo_dev,
-                             numRowRegions * numColRegions * sizeof(int));
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMalloc failed for mergedBlockInfo_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-      cudaFree(mergedBcsrVal_dev);
-      cudaFree(mergedBcsrRowPtr_dev);
-      cudaFree(mergedBcsrColIdx_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      free(mergedBlockInfo_host);
-      free(mergedRelativeBlockIndexMapping_host);
-      free(mergedTileInfo_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
+    // Allocate device memory
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&mergedBlockInfo_dev,
+                   numRowRegions * numColRegions * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&mergedRelativeBlockIndexMapping_dev,
+                   numRowRegions * numColRegions * sizeof(int)));
 
-    cuda_status = cudaMalloc((void **)&mergedRelativeBlockIndexMapping_dev,
-                             numRowRegions * numColRegions * sizeof(int));
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMalloc failed for "
-             "mergedRelativeBlockIndexMapping_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-      cudaFree(mergedBcsrVal_dev);
-      cudaFree(mergedBcsrRowPtr_dev);
-      cudaFree(mergedBcsrColIdx_dev);
-      cudaFree(mergedBlockInfo_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      free(mergedBlockInfo_host);
-      free(mergedRelativeBlockIndexMapping_host);
-      free(mergedTileInfo_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
-
-    cuda_status = cudaMalloc((void **)&mergedTileInfo_dev,
-                             blocks.size() * BLOCK * BLOCK * sizeof(int));
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMalloc failed for mergedTileInfo_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-      cudaFree(mergedBcsrVal_dev);
-      cudaFree(mergedBcsrRowPtr_dev);
-      cudaFree(mergedBcsrColIdx_dev);
-      cudaFree(mergedBlockInfo_dev);
-      cudaFree(mergedRelativeBlockIndexMapping_dev);
-      free(mergedBcsrVal_host);
-      free(mergedBcsrRowPtr_host);
-      free(mergedBcsrColIdx_host);
-      free(mergedBlockInfo_host);
-      free(mergedRelativeBlockIndexMapping_host);
-      free(mergedTileInfo_host);
-      for (auto &block : blocks) {
-        free(block.vals);
-        free(block.tileInfo);
-      }
-      return;
-    }
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&mergedTileInfo_dev,
+                   blocks.size() * BLOCK * BLOCK * sizeof(int)));
 
     // Copy to device
-    printf("Copying block info to device\n");
-    cuda_status = cudaMemcpy(mergedBlockInfo_dev, mergedBlockInfo_host,
-                             numRowRegions * numColRegions * sizeof(int),
-                             cudaMemcpyHostToDevice);
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMemcpy failed for mergedBlockInfo_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-    }
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
+        mergedBlockInfo_dev, mergedBlockInfo_host,
+        numRowRegions * numColRegions * sizeof(int), cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
+        mergedRelativeBlockIndexMapping_dev,
+        mergedRelativeBlockIndexMapping_host,
+        numRowRegions * numColRegions * sizeof(int), cudaMemcpyHostToDevice));
 
-    cuda_status = cudaMemcpy(mergedRelativeBlockIndexMapping_dev,
-                             mergedRelativeBlockIndexMapping_host,
-                             numRowRegions * numColRegions * sizeof(int),
-                             cudaMemcpyHostToDevice);
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMemcpy failed for "
-             "mergedRelativeBlockIndexMapping_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-    }
-
-    cuda_status = cudaMemcpy(mergedTileInfo_dev, mergedTileInfo_host,
-                             blocks.size() * BLOCK * BLOCK * sizeof(int),
-                             cudaMemcpyHostToDevice);
-    if (cuda_status != cudaSuccess) {
-      printf("Error: cudaMemcpy failed for mergedTileInfo_dev: %s\n",
-             cudaGetErrorString(cuda_status));
-    }
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(
+        mergedTileInfo_dev, mergedTileInfo_host,
+        blocks.size() * BLOCK * BLOCK * sizeof(int), cudaMemcpyHostToDevice));
 
     // Free block memory
-    printf("Freeing block memory\n");
     for (auto &block : blocks) {
       free(block.vals);
-      free(block.tileInfo);
     }
-
-    printf("bcsrBlocking completed successfully\n");
   }
   // -----
 
