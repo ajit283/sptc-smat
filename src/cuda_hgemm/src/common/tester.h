@@ -344,6 +344,55 @@ public:
 
     return std::make_pair(std::move(metadata), std::move(sparseMatrixA));
   }
+  template <typename PreprocessFunc>
+  std::pair<std::unique_ptr<Matrix>, std::unique_ptr<Matrix>>
+  getPreprocessedTile(PreprocessFunc &&preprocess, bool large) {
+    int k;
+    SparseMatrix *A_matrix = m_A_sparse;
+    if (large) {
+      k = 32;
+      A_matrix = m_A_sparse_large;
+    } else {
+      k = 16;
+    }
+    size_t colRegions = (A_matrix->getCol() + k - 1) / (k);
+    size_t rowRegions = (A_matrix->getRow() + MMA_M - 1) / (MMA_M);
+    size_t nonzeroBlocks = A_matrix->getNonzeroblocks();
+    HLOG("%d nonzero blocks", nonzeroBlocks);
+
+    size_t metadata_size = nonzeroBlocks * MMA_M * (k / 8) / sizeof(half);
+    auto metadata =
+        std::make_unique<Matrix>(metadata_size, 1, "Matrix metadata");
+    HGEMM_CHECK(metadata.get());
+    metadata->memSetHost();
+    metadata->moveToDevice();
+
+    size_t sparseMatrixA_size =
+        nonzeroBlocks * MMA_M * (k / 8) * sizeof(int2) / sizeof(half);
+    auto sparseMatrixA =
+        std::make_unique<Matrix>(sparseMatrixA_size, 1, "Sparse Matrix A");
+    HGEMM_CHECK(sparseMatrixA.get());
+    sparseMatrixA->memSetHost();
+
+    sparseMatrixA->moveToDevice();
+
+    HLOG("sparseMatrixA row: %d\n", sparseMatrixA->getRow());
+    HLOG("sparseMatrixA col: %d\n", sparseMatrixA->getCol());
+    HLOG("A_matrix row: %d \n", A_matrix->getRow());
+    HLOG("A_matrix col: %d \n", A_matrix->getCol());
+
+    usleep(m_sleep_duration * 1000);
+    m_C_for_sparse->tearUp(m_base_for_sparse);
+
+    preprocess(A_matrix->getBcsrValues(), (char *)(metadata->getDevPtr()),
+               sparseMatrixA->getDevPtr(), A_matrix->getRow(),
+               A_matrix->getCol(), m_K, A_matrix->getNonzeroblocks(),
+               A_matrix->getBlockInfo_dev(),
+               A_matrix->getRelativeBlockIndexMapping_dev(),
+               A_matrix->getMergedTileInfo_dev());
+
+    return std::make_pair(std::move(metadata), std::move(sparseMatrixA));
+  }
 
   template <typename Func, typename PreprocessFunc>
   void evaluateSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
@@ -429,7 +478,7 @@ public:
     HLOG("----------------- Sparse Evaluating 24 %s -----------------",
          name.c_str());
     auto [metadata, sparseMatrixA] =
-        getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
+        getPreprocessedTile(std::forward<PreprocessFunc>(preprocess), large);
     cudaDeviceSynchronize();
     SparseMatrix *A_matrix = m_A_sparse;
     if (large) {
@@ -829,7 +878,7 @@ private:
                                const std::string &name, bool large) {
 
     auto [metadata, sparseMatrixA] =
-        getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
+        getPreprocessedTile(std::forward<PreprocessFunc>(preprocess), large);
     cudaDeviceSynchronize();
 
     SparseMatrix *A_matrix = m_A_sparse;

@@ -20,312 +20,409 @@
 
 #define ALIGNMENT_OFFSET 0
 
-//---------------------------------------------------------------------
-// Preprocessing kernel with tiling for K=32 sparse blocks.
-// This kernel compresses a dense 16×32 block into a sparse format using a 2:4
-// scheme, where each row is reduced from 32 half elements to 16 half elements.
-// The compressed data is stored in sparseMatrixA (using 2 int4’s per row)
-// and metadata (2 bytes per row) is stored in metadata.
-__global__ void preprocessing_mmaSTKernelSparse_large_tiled(
+__global__ void preprocessing_mmaOBTSKernelSparse_tiled_large(
     half *bcsrValuesA, char *metadata, half *sparseMatrixA, size_t M, size_t N,
     size_t K, size_t nonzeroBlocks, int *blockInfo,
-    int *relativeBlockIndexMapping) {
+    int *relativeBlockIndexMapping, int *tileInfo) {
 
-  // Compute the tile indices for this CUDA block.
-  // (Each grid block covers a tile of size (MMA_M*BLOCK) x (MMA_N*BLOCK))
-  const int tile_row = blockIdx.y; // tile index in rows
-  const int tile_col = blockIdx.x; // tile index in columns
+  const size_t warp_id = threadIdx.x / WARP_SIZE;
+  const size_t warp_id_y = (threadIdx.x / WARP_SIZE) / BLOCK;
+  const size_t warp_id_x = (threadIdx.x / WARP_SIZE) % BLOCK;
+  const size_t lane_id = threadIdx.x % WARP_SIZE;
 
-  // Each CUDA block contains BLOCK*BLOCK warps.
-  const int warp_id = threadIdx.x / WARP_SIZE;
-  const int lane_id = threadIdx.x % WARP_SIZE;
-  const int warp_id_y = warp_id / BLOCK; // sub-tile row index [0, BLOCK-1]
-  const int warp_id_x = warp_id % BLOCK; // sub-tile col index [0, BLOCK-1]
+  const size_t blockRow = blockIdx.y;
+  const size_t blockCol = blockIdx.x;
 
-  // Compute the global (dense) block indices.
-  // For tiling, each sub-tile corresponds to one "block" of size MMA_M×MMA_K.
-  // The total number of block columns across the K dimension is:
-  int colRegions = div_ceil(K, MMA_K * BLOCK);
-  int globalBlockRow = tile_row * BLOCK + warp_id_y; // overall block row index
-  int globalBlockCol = tile_col * BLOCK + warp_id_x; // overall block col index
-  int globalBlockIndex = globalBlockRow * colRegions + globalBlockCol;
+  const size_t colRegions = (K + (MMA_K * BLOCK) - 1) / (MMA_K * BLOCK);
+  const size_t blockIndexBase = blockRow * colRegions + blockCol;
 
-  // Compute the origin (in the dense A matrix) for this block.
-  size_t block_origin_row = globalBlockRow * MMA_M;
-  size_t block_origin_col = globalBlockCol * MMA_N;
-  if (block_origin_row >= M || block_origin_col >= N)
-    return;
+  // Process all subtiles in the current tile
+  for (size_t subtile_y = 0; subtile_y < BLOCK; subtile_y++) {
+    for (size_t subtile_x = 0; subtile_x < BLOCK; subtile_x++) {
+      size_t blockIndex = blockIndexBase + subtile_y * colRegions + subtile_x;
+      int sparsityInfo =
+          tileInfo[blockIndex * BLOCK * BLOCK + subtile_y * BLOCK + subtile_x];
 
-  // Get sparsity info. (0 means empty block; 1 indicates a sparse block.)
-  int sparsityInfo = blockInfo[globalBlockIndex];
-  if (sparsityInfo == 0)
-    return;
-  int relativeIndex = relativeBlockIndexMapping[globalBlockIndex];
+      if (sparsityInfo == 0) {
+        // Zero block, skip
+        continue;
+      }
 
-  // Process only sparse blocks (sparsityInfo == 1). (Dense blocks could be
-  // handled similarly.)
-  if (sparsityInfo == 1) {
-    // Shared memory buffers for temporary storage.
-    // A_smem holds the dense block row data that will be compressed.
-    // Meta_smem holds metadata bytes for each row.
-    __shared__ half A_smem[MMA_M][MMA_K / 2]; // Each row will have MMA_K/2 = 16
-                                              // half's after 2:4 compression.
-    __shared__ char Meta_smem[MMA_M]
-                             [MMA_K / 8]; // For 32 elements per row, 32/8 = 4
-                                          // bytes are available per row.
+      size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+      if (!relativeIndex)
+        continue; // Skip if no mapping exists
 
-    // We assume two lanes cooperate to process one row in the block.
-    int row_in_block = lane_id / 2; // row index within the block (0 to MMA_M-1)
-    int sub_lane =
-        lane_id % 2; // which half of the row this lane is responsible for
+      // Calculate offsets for this subtile
+      size_t subtileOffset =
+          (relativeIndex * BLOCK * BLOCK + subtile_y * BLOCK + subtile_x) *
+          MMA_M * MMA_K;
 
-    // Compute source pointer for the dense block from bcsrValuesA.
-    // The dense block is stored contiguously at offset:
-    //    relativeIndex * (MMA_M * MMA_K)
-    // Each row has MMA_K (32) half elements.
-    half *src = (half *)(((long4 *)&bcsrValuesA[relativeIndex * MMA_M * MMA_K +
-                                                row_in_block * MMA_K]) +
-                         sub_lane);
+      if (sparsityInfo == 1) {
+        // 2:4 sparse block - needs preprocessing
+        half *src =
+            &bcsrValuesA[subtileOffset + (lane_id / 2) * MMA_K + (lane_id % 2)];
+        half src_sparse[MMA_K / 2 / 2]; // Buffer for processed values
 
-    // Temporary storage for the compressed row segment.
-    // After compression each row (of 32 elements) becomes 16 half elements.
-    // We assume that each lane (of the two handling the row) produces 8 half
-    // elements.
-    half src_sparse[8];
-    // Two metadata bytes per row (one per 8-element half).
-    char cur_meta[2];
-    cur_meta[0] = 0;
-    cur_meta[1] = 0;
+        char *cur_meta = (char *)(metadata + subtileOffset / 2 + lane_id);
+        cur_meta[0] = 0;
+        cur_meta[1] = 0;
 
-// Loop over two parts. Each part processes 8 original half elements.
+// Process the sparse data in two parts
 #pragma unroll
-    for (int part = 0; part < 2; ++part) {
-      // Each part is divided into 2 groups of 4 elements.
-      for (int j = 0; j < 2; ++j) {
-        int cur_src_sparse = 0;
-        int base_idx = part * 8 + j * 4; // starting index in this part
-        for (int i = 0; i < 4; ++i) {
-          half val = src[base_idx + i];
-          if (val != __float2half(0.0f)) {
-            // Store the nonzero half element.
-            src_sparse[j * 4 + cur_src_sparse] = val;
-            // Pack metadata bits: record the position (shifted appropriately).
-            // (This shifting scheme is illustrative; adjust as needed for your
-            // encoding.)
-            cur_meta[part] |= (i << (6 - (2 * (1 - cur_src_sparse) + (4 * j))));
-            cur_src_sparse++;
+        for (int part = 0; part < 2; ++part) {
+          for (int j = 0; j < 2; ++j) {
+            int cur_src_sparse = 0;
+            src_sparse[0 + (2 * j) + part * 4] = 0;
+            src_sparse[1 + (2 * j) + part * 4] = 0;
+
+            for (int i = 0; i < 4; ++i) {
+              if (src[i + (4 * j) + part * 8] != (half)0.0f) {
+                src_sparse[cur_src_sparse + (2 * j) + part * 4] =
+                    src[i + (4 * j) + part * 8];
+                cur_meta[part] |= i
+                                  << (6 - (2 * (1 - cur_src_sparse) + (4 * j)));
+                if (cur_src_sparse > 1) {
+                  printf("%d ", cur_src_sparse);
+                }
+                cur_src_sparse++;
+                // print cur_src_sparse
+              }
+            }
           }
+        }
+
+        // Store processed data
+        // half *dest = &sparseMatrixA[subtileOffset + lane_id * (MMA_K / 16)];
+        // *((int4 *)dest) = *((int4 *)src_sparse);
+
+        // Corrected code:
+        half *dest =
+            &sparseMatrixA[subtileOffset + (lane_id / 2) * (MMA_K / 2) +
+                           (lane_id % 2) * 8];
+        *((int4 *)dest) = *((int4 *)src_sparse);
+
+        // Store metadata
+        metadata[subtileOffset / 2 + lane_id] = cur_meta[0];
+        metadata[subtileOffset / 2 + lane_id + 1] = cur_meta[1];
+      } else if (sparsityInfo == 2) {
+        // Dense block - copy as is
+        half *src =
+            &bcsrValuesA[subtileOffset + (lane_id / 2) * MMA_K + (lane_id % 2)];
+        half *dest = &sparseMatrixA[subtileOffset + (lane_id / 2) * MMA_K +
+                                    (lane_id % 2)];
+
+        // Copy the entire dense block
+        *((long4 *)dest) = *((long4 *)src);
+
+        // Zero out corresponding metadata
+        if (lane_id < MMA_M * (MMA_K / 8)) {
+          metadata[subtileOffset / 2 + lane_id] = 0;
         }
       }
     }
-
-    // Write out metadata and compressed data.
-    // For the compressed data:
-    // - Each sparse block tile is stored in sparseMatrixA as 16 rows.
-    // - Each row has 16 half elements, which are stored as 2 int4’s (each int4
-    // packs 8 half elements).
-    int dataOffset =
-        relativeIndex * MMA_M * 2; // 2 int4’s per row for MMA_M rows.
-    // For metadata:
-    // - We store 2 bytes per row; assume a contiguous array.
-    int metaOffset = relativeIndex * MMA_M * 2;
-    // Write metadata for this row.
-    metadata[metaOffset + row_in_block * 2 + sub_lane] = cur_meta[sub_lane];
-    // Write the compressed row segment.
-    // Each row’s compressed data is split between two lanes.
-    // Here we reinterpret src_sparse (8 half elements) as an int4.
-    // *((int4 *)(sparseMatrixA + dataOffset + row_in_block * 2 + sub_lane)) =
-    //     *((int4 *)src_sparse);
-    int dataIndex = relativeIndex * (MMA_M * 2) + row_in_block * 2 + sub_lane;
-    ((int4 *)sparseMatrixA)[dataIndex] = *((int4 *)src_sparse);
   }
-  // (Optionally, handle sparsityInfo == 2 for dense blocks.)
 }
 
 __global__ void mmaOBTSKernelSparse_tiled_large(
-    half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA, half *B, half *C,
-    size_t M, size_t N, size_t K, size_t nonzeroBlocks, int *blockInfo,
-    int *relativeBlockIndexMapping, int *tileInfo) {
+    half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA, char *metadata,
+    half *sparseMatrixA, half *B, half *C, size_t M, size_t N, size_t K,
+    size_t nonzeroBlocks, int *blockInfo, int *relativeBlockIndexMapping,
+    int *tileInfo) {
 
   const size_t warp_row = blockIdx.y * MMA_M * BLOCK;
   const size_t warp_col = blockIdx.x * MMA_N * BLOCK;
 
   const size_t warp_id = threadIdx.x / WARP_SIZE;
-
   const size_t warp_id_y = (threadIdx.x / WARP_SIZE) / BLOCK;
   const size_t warp_id_x = (threadIdx.x / WARP_SIZE) % BLOCK;
+  const size_t lane_id = threadIdx.x % WARP_SIZE;
 
-  size_t blockRow = blockIdx.y;
-  size_t blockCol = blockIdx.x;
-
-  size_t colRegions = (K + MMA_K * BLOCK - 1) / (MMA_K * BLOCK);
+  const size_t blockRow = blockIdx.y;
+  const size_t blockCol = blockIdx.x;
 
   if (warp_row + warp_id_y * MMA_M >= M || warp_col + warp_id_x * MMA_N >= N) {
     return;
   }
 
+  const size_t colRegions = (K + MMA_K * BLOCK - 1) / (MMA_K * BLOCK);
+
+  // Shared memory for loading data and calculations
+  __shared__ half A_smem_sparse[NUM_STAGES][BLOCK][BLOCK][MMA_M]
+                               [(MMA_K / 2 + ALIGNMENT_OFFSET)];
+  __shared__ char Meta_smem_sparse[NUM_STAGES][BLOCK][BLOCK][MMA_M]
+                                  [(MMA_K / 8 + ALIGNMENT_OFFSET)];
   __shared__ half
-      A_smem[NUM_STAGES][BLOCK][BLOCK][MMA_M][(MMA_K + ALIGNMENT_OFFSET)];
+      A_smem_dense[NUM_STAGES][BLOCK][BLOCK][MMA_M][(MMA_K + ALIGNMENT_OFFSET)];
   __shared__ half
       B_smem[NUM_STAGES][BLOCK][BLOCK][MMA_N][(MMA_K + ALIGNMENT_OFFSET)];
   __shared__ half C_smem[BLOCK][BLOCK][MMA_M][MMA_N];
 
-  const size_t lane_id = threadIdx.x % WARP_SIZE;
+  // Storage for matrix multiplication registers
+  uint32_t RA_sparse[NUM_STAGES][4];
+  uint32_t RA_dense[NUM_STAGES][4];
+  uint32_t RB[NUM_STAGES][4]; // Need 4 for sparse, 2 for dense
+  uint32_t RC[2] = {0, 0};    // Accumulation registers
 
-  uint32_t RA[NUM_STAGES][4];
-  uint32_t RB[NUM_STAGES][2];
-
+  // Setup pipeline for async memory operations
   cuda::pipeline<cuda::thread_scope_thread> pipe = cuda::make_pipeline();
-  // Load all pipeline stages.
+
+  // Load initial pipeline stages
   for (int stage = 0; stage < NUM_STAGES; ++stage) {
     pipe.producer_acquire();
 
     size_t ptr = bcsrRowPtrA[blockRow] + stage;
     if (ptr < bcsrRowPtrA[blockRow + 1]) {
-      size_t i = bcsrColIdxA[ptr] / (MMA_K * BLOCK);
-      // skip empty block
-      size_t blockIndex = blockRow * colRegions + i;
-
+      size_t tile_idx = bcsrColIdxA[ptr] / (MMA_K * BLOCK);
+      size_t blockIndex = blockRow * colRegions + tile_idx;
       size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
 
-      size_t A_size = MMA_M * MMA_K * sizeof(half);
-      size_t B_size = MMA_N * MMA_K * sizeof(half);
+      if (relativeIndex != -1) {
+        // Load the B matrix part (same for both dense and sparse)
+        if (lane_id < MMA_N * 4) {
+          cuda::memcpy_async(
+              ((int4 *)(&B_smem[stage][warp_id_y][warp_id_x][lane_id / 4]
+                               [ALIGNMENT_OFFSET]) +
+               lane_id % 4),
+              ((int4 *)(&B[tile_idx * MMA_K * BLOCK +
+                           (warp_col + warp_id_x * MMA_N + lane_id / 4) * K]) +
+               lane_id % 4),
+              sizeof(int4), pipe);
+        }
 
-      cuda::memcpy_async(((long4 *)(&A_smem[stage][warp_id_y][warp_id_x][(
-                              lane_id / 2)][(ALIGNMENT_OFFSET)]) +
-                          lane_id % 2),
-                         (((long4 *)(&bcsrValuesA[(relativeIndex)*MMA_M *
-                                                      MMA_K * BLOCK * BLOCK +
-                                                  warp_id * MMA_M * MMA_K +
-                                                  (lane_id / 2) * MMA_K]) +
-                           lane_id % 2)),
-                         sizeof(long4), pipe);
+        // Get sparsity type for this subtile
+        int subtile_idx = warp_id_y * BLOCK + warp_id_x;
+        int sparsityInfo = tileInfo[blockIndex * BLOCK * BLOCK + subtile_idx];
 
-      // For matrix B
-      if (lane_id < MMA_N * 2) { // Original condition preserved
-        cuda::memcpy_async(
-            ((long4 *)(&B_smem[stage][warp_id_y][warp_id_x][(lane_id / 2)]
-                              [(ALIGNMENT_OFFSET)]) +
-             lane_id % 2),
-            ((long4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
-                          (warp_col + warp_id_y * MMA_N + lane_id / 2) * K]) +
-             lane_id % 2),
-            sizeof(long4), pipe);
+        if (sparsityInfo == 1) {
+          // Sparse block - load compressed values and metadata
+          size_t subtileOffset =
+              (relativeIndex * BLOCK * BLOCK + subtile_idx) * MMA_M * MMA_K;
+
+          cuda::memcpy_async(
+              ((int4 *)(&A_smem_sparse[stage][warp_id_y][warp_id_x][lane_id / 2]
+                                      [ALIGNMENT_OFFSET]) +
+               lane_id % 2),
+              ((int4 *)(&sparseMatrixA[subtileOffset +
+                                       (lane_id / 2) * (MMA_K / 2)])),
+              sizeof(int4), pipe);
+
+          if (lane_id < MMA_M * (MMA_K / 8)) {
+            cuda::memcpy_async(
+                &Meta_smem_sparse[stage][warp_id_y][warp_id_x]
+                                 [lane_id / (MMA_K / 8)][lane_id % (MMA_K / 8)],
+                &metadata[subtileOffset / 2 + lane_id], sizeof(char), pipe);
+          }
+        } else if (sparsityInfo == 2) {
+          // Dense block - load full values
+          size_t subtileOffset =
+              (relativeIndex * BLOCK * BLOCK + subtile_idx) * MMA_M * MMA_K;
+
+          cuda::memcpy_async(
+              ((int4 *)(&A_smem_dense[stage][warp_id_y][warp_id_x][lane_id / 2]
+                                     [ALIGNMENT_OFFSET]) +
+               lane_id % 2),
+              ((int4 *)(&sparseMatrixA[subtileOffset + (lane_id / 2) * MMA_K])),
+              sizeof(int4), pipe);
+        }
       }
-
-      pipe.producer_commit();
     }
+    pipe.producer_commit();
   }
 
-  uint32_t RC[2] = {0, 0};
+  // Process blocks using the pipeline
   int stage = 0;
-
-#pragma unroll
   for (size_t ptr = bcsrRowPtrA[blockRow]; ptr < bcsrRowPtrA[blockRow + 1];
        ptr++) {
-
+    // Wait for data to be ready
     cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
     __syncthreads();
 
-    // moving along the main axis
-    for (int i = 0; i < BLOCK; i++) {
+    size_t tile_idx = bcsrColIdxA[ptr] / (MMA_K * BLOCK);
+    size_t blockIndex = blockRow * colRegions + tile_idx;
 
-      // uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-      //     &A_smem[stage][warp_id_y][i][lane_id / 2][(lane_id % 2) * 8]);
-      uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-          &A_smem[stage][warp_id_y][i][(lane_id % 16)]
-                 [(ALIGNMENT_OFFSET) + (lane_id / 16) * 8]);
-      LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
-                  A_smem_lane_addr);
+    // Process each subtile in the current block
+    for (int subtile_y = 0; subtile_y < BLOCK; subtile_y++) {
+      for (int subtile_x = 0; subtile_x < BLOCK; subtile_x++) {
+        int sparsityInfo = tileInfo[blockIndex * BLOCK * BLOCK +
+                                    subtile_y * BLOCK + subtile_x];
 
-      // uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-      // &B_smem[stage][warp_id_y][i][(lane_id / 2) % 8]
-      //        [(ALIGNMENT_OFFSET) + (lane_id % 2) * 8]);
-      uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-          &B_smem[stage][warp_id_y][i][lane_id % 8]
-                 [(ALIGNMENT_OFFSET) + ((lane_id / 8) % 2) * 8]);
-      LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
+        if (sparsityInfo == 0)
+          continue; // Skip zero blocks
 
-      HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
-                RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
-    }
+        if (sparsityInfo == 1) {
+          // Process sparse block
+          uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+              &A_smem_sparse[stage][subtile_y][subtile_x][(lane_id % 16)]
+                            [ALIGNMENT_OFFSET + (lane_id / 16) * 4]);
+          LDMATRIX_X4(RA_sparse[stage][0], RA_sparse[stage][1],
+                      RA_sparse[stage][2], RA_sparse[stage][3],
+                      A_smem_lane_addr);
 
-    __syncthreads();
-    // Release the consumed stage.
-    pipe.consumer_release();
+          uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+              &B_smem[stage][subtile_y][subtile_x][lane_id % 8]
+                     [ALIGNMENT_OFFSET + ((lane_id / 8) % 4) * 8]);
+          LDMATRIX_X4(RB[stage][0], RB[stage][1], RB[stage][2], RB[stage][3],
+                      B_smem_lane_addr);
 
-    // Pre-load data for `num_stages` into the future.
-    pipe.producer_acquire();
+          // Load metadata
+          char metadata_local[4];
+          metadata_local[0] =
+              Meta_smem_sparse[stage][subtile_y][subtile_x][lane_id / 4]
+                              [0 + 2 * (lane_id % 2)];
+          metadata_local[1] =
+              Meta_smem_sparse[stage][subtile_y][subtile_x][lane_id / 4]
+                              [1 + 2 * (lane_id % 2)];
+          metadata_local[2] =
+              Meta_smem_sparse[stage][subtile_y][subtile_x][(lane_id / 4) + 8]
+                              [0 + 2 * (lane_id % 2)];
+          metadata_local[3] =
+              Meta_smem_sparse[stage][subtile_y][subtile_x][(lane_id / 4) + 8]
+                              [1 + 2 * (lane_id % 2)];
 
-    size_t stage_ptr = ptr + NUM_STAGES;
+          uint32_t meta_value;
+          memcpy(&meta_value, metadata_local, sizeof(uint32_t));
 
-    if (stage_ptr < bcsrRowPtrA[blockRow + 1]) {
+          // Sparse matrix multiplication
+          HMMA16832_SPARSE(RC[0], RC[1], RA_sparse[stage][0],
+                           RA_sparse[stage][1], RA_sparse[stage][2],
+                           RA_sparse[stage][3], RB[stage][0], RB[stage][1],
+                           RB[stage][2], RB[stage][3], RC[0], RC[1], meta_value,
+                           0x0);
+        } else if (sparsityInfo == 2) {
+          // Process dense block
+          uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+              &A_smem_dense[stage][subtile_y][subtile_x][(lane_id % 16)]
+                           [ALIGNMENT_OFFSET + (lane_id / 16) * 8]);
+          LDMATRIX_X4(RA_dense[stage][0], RA_dense[stage][1],
+                      RA_dense[stage][2], RA_dense[stage][3], A_smem_lane_addr);
 
-      size_t i = bcsrColIdxA[stage_ptr] / (MMA_K * BLOCK);
-      // skip empty block
-      size_t blockIndex = blockRow * colRegions + i;
+          uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+              &B_smem[stage][subtile_y][subtile_x][lane_id % 8]
+                     [ALIGNMENT_OFFSET + ((lane_id / 8) % 2) * 8]);
+          LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
 
-      size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+          // Dense matrix multiplication
+          HMMA16816(RC[0], RC[1], RA_dense[stage][0], RA_dense[stage][1],
+                    RA_dense[stage][2], RA_dense[stage][3], RB[stage][0],
+                    RB[stage][1], RC[0], RC[1]);
 
-      size_t A_size = MMA_M * MMA_K * sizeof(half);
-      size_t B_size = MMA_N * MMA_K * sizeof(half);
+          // Process second half of K dimension
+          A_smem_lane_addr = __cvta_generic_to_shared(
+              &A_smem_dense[stage][subtile_y][subtile_x][(lane_id % 16)]
+                           [ALIGNMENT_OFFSET + (lane_id / 16) * 8 + 16]);
+          LDMATRIX_X4(RA_dense[stage][0], RA_dense[stage][1],
+                      RA_dense[stage][2], RA_dense[stage][3], A_smem_lane_addr);
 
-      cuda::memcpy_async(((int4 *)(&A_smem[stage][warp_id_y][warp_id_x]
-                                          [(lane_id / 2)][(ALIGNMENT_OFFSET)]) +
-                          lane_id % 2),
-                         (((int4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K *
-                                                     BLOCK * BLOCK +
-                                                 warp_id * MMA_M * MMA_K +
-                                                 (lane_id / 2) * MMA_K]) +
-                           lane_id % 2)),
-                         sizeof(int4), pipe);
+          B_smem_lane_addr = __cvta_generic_to_shared(
+              &B_smem[stage][subtile_y][subtile_x][lane_id % 8]
+                     [ALIGNMENT_OFFSET + ((lane_id / 8) % 2) * 8 + 16]);
+          LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
 
-      // For matrix B
-      if (lane_id < MMA_N * 2) { // Original condition preserved
-        cuda::memcpy_async(
-            ((int4 *)(&B_smem[stage][warp_id_y][warp_id_x]
-                             [MMA_N + (lane_id / 2)][(ALIGNMENT_OFFSET)]) +
-             lane_id % 2),
-            ((int4 *)(&B[i * MMA_K * BLOCK + (warp_id_x)*MMA_K +
-                         (warp_col + warp_id_y * MMA_N + lane_id / 2) * K]) +
-             lane_id % 2),
-            sizeof(int4), pipe);
+          HMMA16816(RC[0], RC[1], RA_dense[stage][0], RA_dense[stage][1],
+                    RA_dense[stage][2], RA_dense[stage][3], RB[stage][0],
+                    RB[stage][1], RC[0], RC[1]);
+        }
       }
     }
 
+    __syncthreads();
+
+    // Release the consumed stage
+    pipe.consumer_release();
+
+    // Pre-load data for future stages
+    pipe.producer_acquire();
+    size_t stage_ptr = ptr + NUM_STAGES;
+    if (stage_ptr < bcsrRowPtrA[blockRow + 1]) {
+      size_t tile_idx = bcsrColIdxA[stage_ptr] / (MMA_K * BLOCK);
+      size_t blockIndex = blockRow * colRegions + tile_idx;
+      size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+
+      if (relativeIndex != -1) {
+        // Load the B matrix part (same for both dense and sparse)
+        if (lane_id < MMA_N * 4) {
+          cuda::memcpy_async(
+              ((int4 *)(&B_smem[stage][warp_id_y][warp_id_x][lane_id / 4]
+                               [ALIGNMENT_OFFSET]) +
+               lane_id % 4),
+              ((int4 *)(&B[tile_idx * MMA_K * BLOCK +
+                           (warp_col + warp_id_x * MMA_N + lane_id / 4) * K]) +
+               lane_id % 4),
+              sizeof(int4), pipe);
+        }
+
+        // Get sparsity type for this subtile
+        int subtile_idx = warp_id_y * BLOCK + warp_id_x;
+        int sparsityInfo = tileInfo[blockIndex * BLOCK * BLOCK + subtile_idx];
+
+        if (sparsityInfo == 1) {
+          // Sparse block - load compressed values and metadata
+          size_t subtileOffset =
+              (relativeIndex * BLOCK * BLOCK + subtile_idx) * MMA_M * MMA_K;
+
+          cuda::memcpy_async(
+              ((int4 *)(&A_smem_sparse[stage][warp_id_y][warp_id_x][lane_id / 2]
+                                      [ALIGNMENT_OFFSET]) +
+               lane_id % 2),
+              ((int4 *)(&sparseMatrixA[subtileOffset +
+                                       (lane_id / 2) * (MMA_K / 2)])),
+              sizeof(int4), pipe);
+
+          if (lane_id < MMA_M * (MMA_K / 8)) {
+            cuda::memcpy_async(
+                &Meta_smem_sparse[stage][warp_id_y][warp_id_x]
+                                 [lane_id / (MMA_K / 8)][lane_id % (MMA_K / 8)],
+                &metadata[subtileOffset / 2 + lane_id], sizeof(char), pipe);
+          }
+        } else if (sparsityInfo == 2) {
+          // Dense block - load full values
+          size_t subtileOffset =
+              (relativeIndex * BLOCK * BLOCK + subtile_idx) * MMA_M * MMA_K;
+
+          cuda::memcpy_async(
+              ((int4 *)(&A_smem_dense[stage][warp_id_y][warp_id_x][lane_id / 2]
+                                     [ALIGNMENT_OFFSET]) +
+               lane_id % 2),
+              ((int4 *)(&sparseMatrixA[subtileOffset + (lane_id / 2) * MMA_K])),
+              sizeof(int4), pipe);
+        }
+      }
+    }
     pipe.producer_commit();
 
+    // Update stage for next iteration
     stage = (stage + 1) % NUM_STAGES;
   }
 
+  // Store results to C_smem
   *((uint32_t *)(&C_smem[warp_id_y][warp_id_x][lane_id / 4][0]) + lane_id % 4) =
       RC[0];
   *((uint32_t *)(&C_smem[warp_id_y][warp_id_x][(lane_id / 4 + 8)][0]) +
     lane_id % 4) = RC[1];
+
   __syncthreads();
 
+  // Write results back to global memory
   if (lane_id < MMA_M) {
-
     *((int4 *)(&C[(warp_row + warp_id_y * MMA_M + lane_id) * N + warp_col +
                   warp_id_x * MMA_N])) =
         *((int4 *)(&C_smem[warp_id_y][warp_id_x][lane_id][0]));
   }
 }
 
-void preprocessing_mmaOBTKernel_large(half *bcsrValuesA, char *metadata,
-                                      half *sparseMatrixA, size_t M, size_t N,
-                                      size_t K, size_t nonzeroBlocks,
-                                      int *blockInfo,
-                                      int *relativeBlockIndexMapping) {
+void preprocessing_mmaOBTSKernel_tiled_large(
+    half *bcsrValuesA, char *metadata, half *sparseMatrixA, size_t M, size_t N,
+    size_t K, size_t nonzeroBlocks, int *blockInfo,
+    int *relativeBlockIndexMapping, int *tileInfo) {
   // Configure grid and block dimensions for tiling.
-  // Each CUDA block covers a tile of (MMA_N*BLOCK) columns x (MMA_M*BLOCK)
-  // rows.
+  // Each CUDA block covers a tile of (MMA_N*BLOCK) columns x
+  // (MMA_M*BLOCK) rows.
   dim3 block(WARP_SIZE * BLOCK * BLOCK);
   dim3 grid(div_ceil(N, MMA_N * BLOCK), div_ceil(M, MMA_M * BLOCK));
 
-  preprocessing_mmaSTKernelSparse_large_tiled<<<grid, block>>>(
+  preprocessing_mmaOBTSKernelSparse_tiled_large<<<grid, block>>>(
       bcsrValuesA, metadata, sparseMatrixA, M, N, K, nonzeroBlocks, blockInfo,
-      relativeBlockIndexMapping);
+      relativeBlockIndexMapping, tileInfo);
 }
 
 void mmaOBTSKernel_tiled_large(half *bcsrValuesA, int *bcsrRowPtrA,
@@ -338,6 +435,6 @@ void mmaOBTSKernel_tiled_large(half *bcsrValuesA, int *bcsrRowPtrA,
   dim3 grid(div_ceil(N, MMA_N * BLOCK), div_ceil(M, MMA_M * BLOCK));
 
   mmaOBTSKernelSparse_tiled_large<<<grid, block>>>(
-      bcsrValuesA, bcsrRowPtrA, bcsrColIdxA, B, C, M, N, K, nonzeroBlocks,
-      blockInfo, relativeBlockIndexMapping, tileInfo);
+      bcsrValuesA, bcsrRowPtrA, bcsrColIdxA, metadata, sparseMatrixA, B, C, M,
+      N, K, nonzeroBlocks, blockInfo, relativeBlockIndexMapping, tileInfo);
 }

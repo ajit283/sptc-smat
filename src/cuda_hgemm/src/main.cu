@@ -54,11 +54,10 @@ void preprocessing_mmaSTKernel_large(half *bcsrValuesA, char *metadata,
                                      size_t K, size_t nonzeroBlocks,
                                      int *blockInfo,
                                      int *relativeBlockIndexMapping);
-void preprocessing_mmaOBTKernel_large(half *bcsrValuesA, char *metadata,
-                                      half *sparseMatrixA, size_t M, size_t N,
-                                      size_t K, size_t nonzeroBlocks,
-                                      int *blockInfo,
-                                      int *relativeBlockIndexMapping);
+void preprocessing_mmaOBTSKernel_tiled_large(
+    half *bcsrValuesA, char *metadata, half *sparseMatrixA, size_t M, size_t N,
+    size_t K, size_t nonzeroBlocks, int *blockInfo,
+    int *relativeBlockIndexMapping, int *tileInfo);
 
 // DEFINE_uint32(M, 16384, "M");
 // DEFINE_uint32(N, 8, "N");
@@ -473,7 +472,7 @@ int main(int argc, char *argv[]) {
   //                           preprocessing_mmaSTKernel_large,
   //                           "Mma-OBTS-Kernel-large", true);
   tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
-                                  preprocessing_mmaOBTKernel_large,
+                                  preprocessing_mmaOBTSKernel_tiled_large,
                                   "Mma-OBTS-Kernel-tiled-large", true);
   // still need to work on this
 
