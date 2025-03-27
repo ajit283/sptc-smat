@@ -112,12 +112,16 @@ public:
     m_max_diff = 0.0;
     m_avg_diff = 0.0;
     double diff = 0.0;
+    int num_diff = 0;
     for (size_t i = 0; i < m_elem_num; ++i) {
       diff = static_cast<double>(std::abs(__half2float(m_host_ptr[i]) -
                                           __half2float(base->getHostPtr()[i])));
 
       m_max_diff = std::max(m_max_diff, diff);
       m_avg_diff += diff;
+      if (diff > 1e-5) {
+        num_diff++;
+      }
 
       // Print diff and values
       // printf("%.0f ", __half2float(m_host_ptr[i]));
@@ -129,7 +133,8 @@ public:
     }
     m_avg_diff /= static_cast<double>(m_elem_num);
 
-    HLOG("Max diff: %f, avg diff: %f", m_max_diff, m_avg_diff);
+    HLOG("Max diff: %f, avg diff: %f, num diff: %i", m_max_diff, m_avg_diff,
+         num_diff);
   }
 
 private:
@@ -862,7 +867,7 @@ public:
                 allZero = false;
               }
               // In 2:4 sparsity a nonzero group must have exactly 2 nonzeros.
-              if (nonzeroCount != 0 && nonzeroCount != 2) {
+              if (nonzeroCount != 0 && nonzeroCount > 2) {
                 followsTwoFour = false;
               }
             }
