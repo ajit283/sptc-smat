@@ -38,7 +38,7 @@ unset (CUDA_USE_STATIC_CUDA_RUNTIME CACHE)
 option (CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 
 set (CUDA_VERBOSE_BUILD ${HGEMM_VERBOSE_MAKEFILE})
-set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++17 -lineinfo -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda")
+set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++17 -g -lineinfo -Xptxas=-v -v -Xcompiler -fopenmp --extended-lambda")
 if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -arch=sm_${CMAKE_CUDA_ARCHITECTURES} -g -lineinfo -O0")
 else ()

@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "logging_cuda.h"
 #include "ptx.h"
 
 #define MMA_M 16
@@ -86,6 +87,13 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
 
       *cur_meta = 0;
 
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID,
+                         "Block %d Lane %d src values: ", blockIndex, lane_id);
+      for (int k = 0; k < MMA_K / 2; ++k) {
+        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)src[k]);
+      }
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+
 #pragma unroll
       for (int j = 0; j < 2; ++j) {
         int cur_src_sparse = 0;
@@ -100,6 +108,23 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
           }
         }
       }
+
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID,
+                         "Block %d Lane %d src_sparse values: ", blockIndex,
+                         lane_id);
+      for (int k = 0; k < MMA_K / 2 / 2; ++k) {
+        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)src_sparse[k]);
+      }
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d metadata: \n",
+                         blockIndex, lane_id);
+
+      DEBUG_EXECUTE_ON_THREAD(
+          PRINT_THREAD_ID,
+          for (int i = 7; i >= 0; i--) { printf("%d", (cur_meta[0] >> i) & 1); }
+
+      )
 
       *(metadata + (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)) = *cur_meta;
 
@@ -237,6 +262,21 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
 
       uint32_t meta_value;
       memcpy(&meta_value, metadata_local, sizeof(uint32_t));
+
+      // print RA, RB
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RA: ", blockIndex,
+                         lane_id);
+      for (int k = 0; k < 4; ++k) {
+        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RA[k]);
+      }
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RB: ", blockIndex,
+                         lane_id);
+      for (int k = 0; k < 4; ++k) {
+        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RB[k]);
+      }
+      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
 
       HMMA16816_SPARSE(RC[0], RC[1], RA[0], RA[1], RB[0], RB[1], RC[0], RC[1],
                        meta_value, 0x0);
