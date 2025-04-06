@@ -680,7 +680,7 @@ public:
         half *vals =
             (half *)calloc(BLOCK * BLOCK * MMA_M * mMMA_K, sizeof(half));
         size_t dest_offset =
-            positionInBlock_y * mMMA_K * BLOCK + positionInBlock_x;
+            positionInBlock_y * mMMA_K * BLOCK + positionInBlock_x * MMA_M;
         size_t src_offset = i * MMA_M * mMMA_K;
         // std::cout << "Copying " << MMA_M * MMA_K << " values from offset "
         //           << src_offset << " to offset " << dest_offset << "\n";

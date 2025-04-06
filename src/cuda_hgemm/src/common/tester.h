@@ -316,6 +316,7 @@ public:
     HLOG("%d nonzero blocks", nonzeroBlocks);
 
     size_t metadata_size = nonzeroBlocks * MMA_M * (k / 8) / sizeof(half);
+
     auto metadata =
         std::make_unique<Matrix>(metadata_size, 1, "Matrix metadata");
     HGEMM_CHECK(metadata.get());
@@ -324,6 +325,7 @@ public:
 
     size_t sparseMatrixA_size =
         nonzeroBlocks * MMA_M * (k / 8) * sizeof(int2) / sizeof(half);
+
     auto sparseMatrixA =
         std::make_unique<Matrix>(sparseMatrixA_size, 1, "Sparse Matrix A");
     HGEMM_CHECK(sparseMatrixA.get());

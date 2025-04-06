@@ -57,6 +57,16 @@ include_directories (
     ${GFLAGS_INCLUDE_DIR}
 )
 
+# Add CUTLASS include path
+set(CUTLASS_DIR "${PROJECT_SOURCE_DIR}/cutlass" CACHE PATH "Path to CUTLASS directory")
+include_directories(
+    ${PROJECT_SOURCE_DIR}/src/common
+    ${SYS_CUDART_PATH}/include
+    ${GFLAGS_INCLUDE_DIR}
+    ${CUTLASS_DIR}/include
+    ${CUTLASS_DIR}/tools/util/include
+)
+
 link_directories (
     ${SYS_CUDART_PATH}/lib64
     ${SYS_CUDA_DRIVER_PATH}

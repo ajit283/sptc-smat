@@ -10,6 +10,8 @@
 #include "logging_cuda.h"
 #include "ptx.h"
 
+
+
 #define MMA_M 16
 #define MMA_N 8
 #define MMA_K 32
@@ -24,10 +26,7 @@ __global__ void preprocessing_mmaSTKernelSparse_large(
     size_t K, size_t nonzeroBlocks, int *blockInfo,
     int *relativeBlockIndexMapping) {
   int PRINT_THREAD_ID = 11;
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
-  // M = M * 2;
-  // N = N * 2;
-  // mmaSTKernel
+
   const size_t K_tiles = div_ceil(K, MMA_K);
 
   const size_t warp_row = blockIdx.y * MMA_M;
@@ -114,31 +113,6 @@ __global__ void preprocessing_mmaSTKernelSparse_large(
           }
         }
       }
-      // Debug: Print sparse and metadata after processing
-      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID,
-      //                    "Block %d Lane %d src_sparse values: ", blockIndex,
-      //                    lane_id);
-      // for (int k = 0; k < MMA_K / 2 / 2; ++k) {
-      //   DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)src_sparse[k]);
-      // }
-      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
-
-      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d metadata: \n",
-      //                    blockIndex, lane_id);
-
-      // DEBUG_EXECUTE_ON_THREAD(
-      //     PRINT_THREAD_ID,
-      //     for (int i = 7; i >= 0; i--) { printf("%d", (cur_meta[0] >> i) &
-      //     1); }
-
-      // )
-
-      // DEBUG_EXECUTE_ON_THREAD(
-      //     PRINT_THREAD_ID, printf("|");
-      //     for (int i = 7; i >= 0; i--) { printf("%d", (cur_meta[1] >> i) &
-      //     1); }
-
-      // )
 
       *(metadata + (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)) =
           cur_meta[0];

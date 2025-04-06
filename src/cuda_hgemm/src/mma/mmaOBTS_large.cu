@@ -55,6 +55,11 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
     if (stage_ptr < bcsrRowPtrA[blockRow + 1]) {
 
       size_t i = bcsrColIdxA[stage_ptr] / MMA_K;
+
+      if (i >= 512) {
+        printf("problem");
+      }
+
       // skip empty block
       size_t blockIndex = blockRow * colRegions + i;
 
@@ -93,7 +98,7 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
         cuda::memcpy_async(
             ((half *)(Meta_smem_sparse[stage][lane_id / 2]) + (lane_id % 2)),
             ((half *)metadata +
-             (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)),
+             (relativeIndex * MMA_M * (MMA_K / 16) + lane_id)),
             sizeof(half), pipe);
 
         cuda::memcpy_async(
