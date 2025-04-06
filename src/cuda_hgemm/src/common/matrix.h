@@ -18,7 +18,7 @@
 #define MMA_N 8
 // #define MMA_K 32
 
-#define BLOCK 2
+#define BLOCK 4
 
 class Matrix {
 public:

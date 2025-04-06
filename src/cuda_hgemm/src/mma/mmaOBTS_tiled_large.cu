@@ -16,7 +16,7 @@
 
 #define NUM_STAGES 2
 
-#define BLOCK 2
+#define BLOCK 4
 
 __global__ void preprocessing_mmaOBTSKernelSparse_tiled_large(
     half *bcsrValuesA, char *metadata, half *sparseMatrixA, size_t M, size_t N,

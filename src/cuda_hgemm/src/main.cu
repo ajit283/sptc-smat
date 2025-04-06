@@ -2,7 +2,7 @@
 #include "omp.h"
 #include "tester.h"
 
-#define BLOCK 2
+#define BLOCK 4
 
 #define HGEMM_FUNC(name)                                                       \
   void name(half *A, half *B, half *C, size_t M, size_t N, size_t K)
@@ -59,9 +59,9 @@ void preprocessing_mmaOBTSKernel_tiled_large(
     size_t K, size_t nonzeroBlocks, int *blockInfo,
     int *relativeBlockIndexMapping, int *tileInfo);
 
-// DEFINE_uint32(M, 16384, "M");
-// DEFINE_uint32(N, 8, "N");
-// DEFINE_uint32(K, 16384, "K");
+DEFINE_uint32(M, 16384, "M");
+DEFINE_uint32(N, 64, "N");
+DEFINE_uint32(K, 16384, "K");
 // DEFINE_uint32(M, 121192, "M");
 // DEFINE_uint32(N, 121192, "N");
 // DEFINE_uint32(K, 121192, "K");
@@ -74,9 +74,9 @@ void preprocessing_mmaOBTSKernel_tiled_large(
 // DEFINE_uint32(M, 1024, "M");
 // DEFINE_uint32(N, 8, "N");
 // DEFINE_uint32(K, 1024, "K");
-DEFINE_uint32(M, 2048, "M");
-DEFINE_uint32(N, 2048, "N");
-DEFINE_uint32(K, 2048, "K");
+// DEFINE_uint32(M, 2048, "M");
+// DEFINE_uint32(N, 2048, "N");
+// DEFINE_uint32(K, 2048, "K");
 DEFINE_bool(enable_wmma, true, "test WMMA API");
 DEFINE_bool(enable_mma, true, "test MMA PTX instruction");
 DEFINE_uint32(warmup_iterations, 1,
@@ -97,10 +97,14 @@ DEFINE_uint32(n_mult, 4, "n_mult * MMA_N = N");
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_128_0.5000.mtx",
 //               "input .mtx file");
-DEFINE_string(filename,
-              "./src/matrices/2_4_sparse_matrices/"
-              "2_4_sparse_mtx_2048_0.1000.mtx",
+// DEFINE_string(filename,
+//               "./src/matrices/2_4_sparse_matrices/"
+//               "2_4_sparse_mtx_2048_0.4000.mtx",
+//               "input .mtx file");
+DEFINE_string(filename, "../sparse-gemm/build/mat_104857d_0s_1024x512_lg.mtx",
               "input .mtx file");
+// DEFINE_string(filename, "../sparse-gemm/build/mat_50d_50s_128x128_sm.mtx",
+//               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_2_4_sparse/"
 //               "band_mtx_2_4_sparse_16384_32.mtx",
@@ -450,30 +454,51 @@ int main(int argc, char *argv[]) {
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
                 FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
-  // tester.evaluateSparse(mmaNaiveKernel, "Mma-Naive-Kernel");
-  // tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  // tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-  // // tester.evaluateSparse(mmaSTKernel, "Mma-ST-Kernel");
-  // tester.evaluateSparse24(mmaSTKernel, preprocessing_mmaSTKernel,
-  //                         "Mma-ST-Kernel");
-  // tester.evaluateSparse24(mmaSTKernel_large, preprocessing_mmaSTKernel_large,
-  //                         "Mma-ST-Kernel-large", true);
+  auto result_mmaT = tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  auto result_cublas = tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
 
-  // tester.evaluateSparse2(mmaBKernel, "Mma-B-Kernel");
-  // tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  // tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  // tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
-  // // testBcsrBlocking();
+  auto result_mmaST = tester.evaluateSparse24(
+      mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
+  auto result_mmaST_large = tester.evaluateSparse24(
+      mmaSTKernel_large, preprocessing_mmaSTKernel_large, "Mma-ST-Kernel-large",
+      true);
 
-  // tester.evaluateSparse24_2(mmaOBTSKernel, preprocessing_mmaSTKernel,
-  //                           "Mma-OBTS-Kernel");
-  // tester.evaluateSparse24_2(mmaOBTSKernel_large,
-  //                           preprocessing_mmaSTKernel_large,
-  //                           "Mma-OBTS-Kernel-large", true);
-  tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
-                                  preprocessing_mmaOBTSKernel_tiled_large,
-                                  "Mma-OBTS-Kernel-tiled-large", true);
+  auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+  auto result_mmaCBT = tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  auto result_mmaOBT = tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+  auto result_mmaOBT_tiled =
+      tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+
+  auto result_mmaOBTS = tester.evaluateSparse24_2(
+      mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
+  auto result_mmaOBTS_large = tester.evaluateSparse24_2(
+      mmaOBTSKernel_large, preprocessing_mmaSTKernel_large,
+      "Mma-OBTS-Kernel-large", true);
+
+  std::cout << "\nResults:\n";
+  std::cout << "Mma-T-Kernel: " << result_mmaT.first << " ms, "
+            << result_mmaT.second << " throughput\n";
+  std::cout << "Cublas-Tensor-Op: " << result_cublas.first << " ms, "
+            << result_cublas.second << " throughput\n";
+  std::cout << "Mma-ST-Kernel: " << result_mmaST.first << " ms, "
+            << result_mmaST.second << " throughput\n";
+  std::cout << "Mma-ST-Kernel-large: " << result_mmaST_large.first << " ms, "
+            << result_mmaST_large.second << " throughput\n";
+  std::cout << "Mma-BT-Kernel: " << result_mmaBT.first << " ms, "
+            << result_mmaBT.second << " throughput\n";
+  std::cout << "Mma-CBT-Kernel: " << result_mmaCBT.first << " ms, "
+            << result_mmaCBT.second << " throughput\n";
+  std::cout << "Mma-OBT-Kernel: " << result_mmaOBT.first << " ms, "
+            << result_mmaOBT.second << " throughput\n";
+  std::cout << "Mma-OBT-Kernel-tiled: " << result_mmaOBT_tiled.first << " ms, "
+            << result_mmaOBT_tiled.second << " throughput\n";
+  std::cout << "Mma-OBTS-Kernel: " << result_mmaOBTS.first << " ms, "
+            << result_mmaOBTS.second << " throughput\n";
+  std::cout << "Mma-OBTS-Kernel-large: " << result_mmaOBTS_large.first
+            << " ms, " << result_mmaOBTS_large.second << " throughput\n";
+  // tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
+  //                                 preprocessing_mmaOBTSKernel_tiled_large,
+  //                                 "Mma-OBTS-Kernel-tiled-large", true);
   // still need to work on this
 
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();

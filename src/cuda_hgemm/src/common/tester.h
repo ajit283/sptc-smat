@@ -138,7 +138,7 @@ public:
   }
 
   template <typename Func>
-  void evaluate(Func &&hgemm, const std::string &name) {
+  std::pair<double, double> evaluate(Func &&hgemm, const std::string &name) {
     HLOG("----------------- Evaluating %s -----------------", name.c_str());
     usleep(m_sleep_duration * 1000);
     m_C->tearUp(m_base);
@@ -158,11 +158,12 @@ public:
       m_C->checkValue(m_base);
     }
 
-    profile(std::forward<Func>(hgemm), name);
+    return profile(std::forward<Func>(hgemm), name);
   }
 
   template <typename Func>
-  void evaluateSparse(Func &&hgemm, const std::string &name) {
+  std::pair<double, double> evaluateSparse(Func &&hgemm,
+                                           const std::string &name) {
     HLOG("----------------- Sparse Evaluating %s -----------------",
          name.c_str());
     // HLOG("%d", m_A_sparse->getBlockInfo_host()[0]);
@@ -187,11 +188,12 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse(std::forward<Func>(hgemm), name);
+    return profileSparse(std::forward<Func>(hgemm), name);
   }
 
   template <typename Func>
-  void evaluateSparse2(Func &&hgemm, const std::string &name) {
+  std::pair<double, double> evaluateSparse2(Func &&hgemm,
+                                            const std::string &name) {
     HLOG("----------------- Sparse Evaluating %s -----------------",
          name.c_str());
     // HLOG("%d", m_A_sparse->getBlockInfo_host()[0]);
@@ -222,10 +224,11 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse2(std::forward<Func>(hgemm), name);
+    return profileSparse2(std::forward<Func>(hgemm), name);
   }
   template <typename Func>
-  void evaluateSparse2_tiled(Func &&hgemm, const std::string &name) {
+  std::pair<double, double> evaluateSparse2_tiled(Func &&hgemm,
+                                                  const std::string &name) {
     HLOG("----------------- Sparse Evaluating %s -----------------",
          name.c_str());
     // HLOG("%d", m_A_sparse->getBlockInfo_host()[0]);
@@ -293,7 +296,7 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse2_tiled(std::forward<Func>(hgemm), name);
+    return profileSparse2_tiled(std::forward<Func>(hgemm), name);
   }
 
   template <typename PreprocessFunc>
@@ -396,8 +399,9 @@ public:
   }
 
   template <typename Func, typename PreprocessFunc>
-  void evaluateSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
-                        const std::string &name, bool large = false) {
+  std::pair<double, double>
+  evaluateSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
+                   const std::string &name, bool large = false) {
     HLOG("----------------- Sparse Evaluating 24 %s -----------------",
          name.c_str());
     auto [metadata, sparseMatrixA] =
@@ -430,12 +434,13 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse24(std::forward<Func>(hgemm), preprocess, name, large);
+    return profileSparse24(std::forward<Func>(hgemm), preprocess, name, large);
   }
 
   template <typename Func2, typename PreprocessFunc>
-  void evaluateSparse24_2(Func2 &&hgemm, PreprocessFunc &&preprocess,
-                          const std::string &name, bool large = false) {
+  std::pair<double, double>
+  evaluateSparse24_2(Func2 &&hgemm, PreprocessFunc &&preprocess,
+                     const std::string &name, bool large = false) {
     HLOG("----------------- Sparse Evaluating 24 %s -----------------",
          name.c_str());
     auto [metadata, sparseMatrixA] =
@@ -471,11 +476,13 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse24_2(std::forward<Func2>(hgemm), preprocess, name, large);
+    return profileSparse24_2(std::forward<Func2>(hgemm), preprocess, name,
+                             large);
   }
   template <typename Func2, typename PreprocessFunc>
-  void evaluateSparse24_2_tiled(Func2 &&hgemm, PreprocessFunc &&preprocess,
-                                const std::string &name, bool large = false) {
+  std::pair<double, double>
+  evaluateSparse24_2_tiled(Func2 &&hgemm, PreprocessFunc &&preprocess,
+                           const std::string &name, bool large = false) {
     HLOG("----------------- Sparse Evaluating 24 %s -----------------",
          name.c_str());
     auto [metadata, sparseMatrixA] =
@@ -512,8 +519,8 @@ public:
       m_C_for_sparse->checkValue(m_base_for_sparse);
     }
 
-    profileSparse24_2_tiled(std::forward<Func2>(hgemm), preprocess, name,
-                            large);
+    return profileSparse24_2_tiled(std::forward<Func2>(hgemm), preprocess, name,
+                                   large);
   }
 
   template <typename Func>
@@ -599,7 +606,8 @@ private:
                      CUBLAS_COMPUTE_16F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
   }
 
-  template <typename Func> void profile(Func &&hgemm, const std::string &name) {
+  template <typename Func>
+  std::pair<double, double> profile(Func &&hgemm, const std::string &name) {
     m_cuda_timer.start();
     for (size_t i = 0; i < m_profiling_iterations; ++i) {
       hgemm(m_A->getDevPtr(), m_B->getDevPtr(), m_C->getDevPtr(), m_M, m_N,
@@ -620,10 +628,12 @@ private:
          "(%.2f%%)",
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
+    return std::make_pair(m_profiling_time, m_throughput);
   }
 
   template <typename Func>
-  void profileSparse(Func &&hgemm, const std::string &name) {
+  std::pair<double, double> profileSparse(Func &&hgemm,
+                                          const std::string &name) {
     // m_cuda_timer.start();
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
@@ -662,10 +672,12 @@ private:
          "(%.2f%%)",
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
+    return std::make_pair(m_profiling_time, m_throughput);
   }
 
   template <typename Func>
-  void profileSparse2(Func &&hgemm, const std::string &name) {
+  std::pair<double, double> profileSparse2(Func &&hgemm,
+                                           const std::string &name) {
     struct timeval t1, t2;
     // m_cuda_timer.start();
     gettimeofday(&t1, NULL);
@@ -682,7 +694,7 @@ private:
       // m_profiling_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec -
       // t1.tv_usec) / 1000.0); FILE* fout; fout = fopen("results_smat.csv",
       // "a"); fprintf(fout, "%lf\n", m_profiling_time); fclose(fout);
-      HLOG("%lf", m_profiling_time);
+      // HLOG("%lf", m_profiling_time);
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);
@@ -709,9 +721,11 @@ private:
          "(%.2f%%)",
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
+    return std::make_pair(m_profiling_time, m_throughput);
   }
   template <typename Func>
-  void profileSparse2_tiled(Func &&hgemm, const std::string &name) {
+  std::pair<double, double> profileSparse2_tiled(Func &&hgemm,
+                                                 const std::string &name) {
     struct timeval t1, t2;
     // m_cuda_timer.start();
     gettimeofday(&t1, NULL);
@@ -729,7 +743,7 @@ private:
       // m_profiling_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec -
       // t1.tv_usec) / 1000.0); FILE* fout; fout = fopen("results_smat.csv",
       // "a"); fprintf(fout, "%lf\n", m_profiling_time); fclose(fout);
-      HLOG("%lf", m_profiling_time);
+      // HLOG("%lf", m_profiling_time);
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);
@@ -756,11 +770,13 @@ private:
          "(%.2f%%)",
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
+    return std::make_pair(m_profiling_time, m_throughput);
   }
 
   template <typename Func, typename PreprocessFunc>
-  void profileSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
-                       const std::string &name, bool large) {
+  std::pair<double, double>
+  profileSparse24(Func &&hgemm, PreprocessFunc &&preprocess,
+                  const std::string &name, bool large) {
 
     auto [metadata, sparseMatrixA] =
         getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
@@ -814,10 +830,13 @@ private:
          "(%.2f%%)",
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
+
+    return std::make_pair(m_profiling_time, m_throughput);
   }
   template <typename Func, typename PreprocessFunc>
-  void profileSparse24_2(Func &&hgemm, PreprocessFunc &&preprocess,
-                         const std::string &name, bool large) {
+  std::pair<double, double>
+  profileSparse24_2(Func &&hgemm, PreprocessFunc &&preprocess,
+                    const std::string &name, bool large) {
 
     auto [metadata, sparseMatrixA] =
         getPreprocessed(std::forward<PreprocessFunc>(preprocess), large);
@@ -872,10 +891,13 @@ private:
          "(%.2f%%)",
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
+
+    return std::make_pair(m_profiling_time, m_throughput);
   }
   template <typename Func, typename PreprocessFunc>
-  void profileSparse24_2_tiled(Func &&hgemm, PreprocessFunc &&preprocess,
-                               const std::string &name, bool large) {
+  std::pair<double, double>
+  profileSparse24_2_tiled(Func &&hgemm, PreprocessFunc &&preprocess,
+                          const std::string &name, bool large) {
 
     auto [metadata, sparseMatrixA] =
         getPreprocessedTile(std::forward<PreprocessFunc>(preprocess), large);
@@ -931,6 +953,7 @@ private:
          "(%.2f%%)",
          name.c_str(), m_profiling_time, m_profiling_time / m_base_time * 100,
          m_throughput, m_throughput / m_base_throughput * 100);
+    return std::make_pair(m_profiling_time, m_throughput);
   }
 
   const size_t m_M = 512;
