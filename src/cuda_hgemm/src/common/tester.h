@@ -452,6 +452,10 @@ public:
     }
 
     A_matrix->bcsrBlocking();
+
+    auto bscrRowPtr = A_matrix->getBcsrRowPtrHost();
+    printf("bscrRowPtr[0]: %d\n", bscrRowPtr[0]);
+    printf("bscrRowPtr[1]: %d\n", bscrRowPtr[1]);
     // warm up
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
@@ -851,13 +855,13 @@ private:
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
     for (size_t i = 0; i < m_profiling_iterations; ++i) {
-      hgemm(m_A_sparse->getBcsrValues(), m_A_sparse->getBcsrRowPtr(),
-            m_A_sparse->getBcsrColIdx(), (char *)(metadata->getDevPtr()),
+      hgemm(A_matrix->getBcsrValues(), A_matrix->getBcsrRowPtr(),
+            A_matrix->getBcsrColIdx(), (char *)(metadata->getDevPtr()),
             sparseMatrixA->getDevPtr(), m_B_for_sparse->getDevPtr(),
-            m_C_for_sparse->getDevPtr(), m_A_sparse->getRow(),
-            m_C_for_sparse->getCol(), m_A_sparse->getCol(),
-            m_A_sparse->getNonzeroblocks(), m_A_sparse->getBlockInfo_dev(),
-            m_A_sparse->getRelativeBlockIndexMapping_dev());
+            m_C_for_sparse->getDevPtr(), A_matrix->getRow(),
+            m_C_for_sparse->getCol(), A_matrix->getCol(),
+            A_matrix->getNonzeroblocks(), A_matrix->getBlockInfo_dev(),
+            A_matrix->getRelativeBlockIndexMapping_dev());
     }
     cudaDeviceSynchronize();
     gettimeofday(&t2, NULL);

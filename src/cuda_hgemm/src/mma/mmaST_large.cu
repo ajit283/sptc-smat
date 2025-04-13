@@ -24,7 +24,7 @@ __global__ void preprocessing_mmaSTKernelSparse_large(
     size_t K, size_t nonzeroBlocks, int *blockInfo,
     int *relativeBlockIndexMapping) {
   int PRINT_THREAD_ID = 11;
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
   // M = M * 2;
   // N = N * 2;
   // mmaSTKernel
@@ -41,7 +41,7 @@ __global__ void preprocessing_mmaSTKernelSparse_large(
   size_t blockIndex = blockRow * colRegions + blockCol;
 
   // print M
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "M: %d\n", M);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "M: %d\n", M);
 
   if (warp_row >= M || warp_col >= N) {
     return;
@@ -54,7 +54,7 @@ __global__ void preprocessing_mmaSTKernelSparse_large(
   uint32_t RC[2] = {0, 0};
 
   // print K_tiles
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
 
 #pragma unroll
   for (size_t i = 0; i < K_tiles; ++i) {
@@ -181,7 +181,7 @@ __global__ void mmaSTKernelSparse_large(half *bcsrValuesA, char *metadata,
   uint32_t RC[2] = {0, 0};
 
   // print K_tiles
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
 
   __shared__ half A_smem_sparse[MMA_M][MMA_K / 2];
   __shared__ half B_smem_sparse[MMA_N][MMA_K];
@@ -200,16 +200,16 @@ __global__ void mmaSTKernelSparse_large(half *bcsrValuesA, char *metadata,
     size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
 
     // print RC as uint32_t
-    DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RC: ", blockIndex,
-                       lane_id);
+    // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RC: ", blockIndex,
+    //  lane_id);
     for (int k = 0; k < 2; ++k) {
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RC[k]);
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RC[k]);
     }
-    DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+    // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
 
     if (sparsityInfo == 2) {
 
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "DENSE");
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "DENSE");
 
       // __shared__ half C_smem[MMA_M][MMA_N];
 
@@ -254,7 +254,7 @@ __global__ void mmaSTKernelSparse_large(half *bcsrValuesA, char *metadata,
     }
 
     else if (sparsityInfo == 1) {
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "SPARSE");
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "SPARSE");
 
       *((int4 *)(&A_smem_sparse[lane_id / 2][0]) + lane_id % 2) =
           *(((int4 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 16) +

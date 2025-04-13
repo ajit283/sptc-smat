@@ -1,11 +1,12 @@
 #pragma once
 
+#include "common.h"
+#include "logging_cuda.h"
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
+#include <cstdint>
 #include <cuda/pipeline>
 #include <stdio.h>
-
-#include "common.h"
 
 #define MMA_M 16
 #define MMA_N 8
@@ -24,6 +25,9 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
 
   const size_t K_tiles = div_ceil(K, MMA_K);
 
+  // DEBUG_PRINT_THREAD(0, "(GPU) bcsrRowPtrA[0]: %d\n", bcsrRowPtrA[0]);
+  // DEBUG_PRINT_THREAD(0, "(GPU) bcsrRowPtrA[1]: %d\n", bcsrRowPtrA[1]);
+
   const size_t warp_row = blockIdx.y * MMA_M;
   const size_t warp_col = blockIdx.x * MMA_N;
 
@@ -36,9 +40,15 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
     return;
   }
 
+  size_t start = bcsrRowPtrA[blockRow];
+  size_t end = bcsrRowPtrA[blockRow + 1];
+
   __shared__ half A_smem[NUM_STAGES][MMA_M][MMA_K];
   __shared__ half B_smem[NUM_STAGES][MMA_N][MMA_K];
   __shared__ half C_smem[MMA_M][MMA_N];
+
+  uint32_t sparsityStage0 = 0;
+  uint32_t sparsityStage1 = 0;
 
   __shared__ half A_smem_sparse[NUM_STAGES][MMA_M][MMA_K / 2];
   __shared__ half B_smem_sparse[NUM_STAGES][MMA_N][MMA_K];
@@ -52,7 +62,7 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
   cuda::pipeline<cuda::thread_scope_thread> pipe = cuda::make_pipeline();
 
   auto loadStages = [&] __device__(size_t stage_ptr, int stage) {
-    if (stage_ptr < bcsrRowPtrA[blockRow + 1]) {
+    if (stage_ptr < end) {
 
       size_t i = bcsrColIdxA[stage_ptr] / MMA_K;
       // skip empty block
@@ -64,6 +74,14 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
       size_t B_size = MMA_N * MMA_K * sizeof(half);
 
       int sparsityInfo = blockInfo[blockIndex];
+
+      if (stage == 0) {
+        sparsityStage0 = sparsityInfo;
+      }
+
+      if (stage == 1) {
+        sparsityStage1 = sparsityInfo;
+      }
 
       if (sparsityInfo == 2) {
 
@@ -93,7 +111,7 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
         cuda::memcpy_async(
             ((half *)(Meta_smem_sparse[stage][lane_id / 2]) + (lane_id % 2)),
             ((half *)metadata +
-             (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)),
+             (relativeIndex * MMA_M * (MMA_K / 16) + lane_id)),
             sizeof(half), pipe);
 
         cuda::memcpy_async(
@@ -116,10 +134,17 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
   }
 
   uint32_t RC[2] = {0, 0};
+
   int stage = 0;
+  // int counter = 0;
+  // DEBUG_PRINT_THREAD(0, "start_pointer: %d\n", bcsrRowPtrA[blockRow]);
+  // DEBUG_PRINT_THREAD(0, "end_pointer: %d\n", bcsrRowPtrA[blockRow + 1]);
+
 #pragma unroll
-  for (size_t ptr = bcsrRowPtrA[blockRow]; ptr < bcsrRowPtrA[blockRow + 1];
-       ptr++) {
+  for (size_t ptr = start; ptr < end; ptr++) {
+    // counter++;
+    // DEBUG_PRINT_THREAD(0, "counter: %d\n", counter);
+    // DEBUG_PRINT_THREAD(0, "bcsrColIdxA[ptr]: %d\n", bcsrColIdxA[ptr]);
 
     cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
     size_t i = bcsrColIdxA[ptr] / MMA_K;
@@ -131,9 +156,11 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
     size_t A_size = MMA_M * MMA_K * sizeof(half);
     size_t B_size = MMA_N * MMA_K * sizeof(half);
 
-    int sparsityInfo = blockInfo[blockIndex];
-
-    __syncthreads();
+    // int sparsityInfo = blockInfo[blockIndex];
+    // int sparsityInfo = 1;
+    // int sparsityInfo = sparsity1;
+    int sparsityInfo = stage == 1 ? sparsityStage1 : sparsityStage0;
+    // __syncthreads();
 
     if (sparsityInfo == 2) {
 
@@ -198,7 +225,7 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
                        RB[stage][3], RC[0], RC[1], meta_value, 0x0);
     }
 
-    __syncthreads();
+    // __syncthreads();
 
     // Release the consumed stage.
     pipe.consumer_release();

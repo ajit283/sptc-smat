@@ -1,0 +1,12 @@
+Results:
+Mma-T-Kernel: 0.0567 ms, 0.147947 throughput
+Cublas-Tensor-Op: 0.31744 ms, 54.1201 throughput
+Mma-ST-Kernel: 0.05 ms, 0.167772 throughput
+Mma-ST-Kernel-large: 0.0414 ms, 0.202623 throughput
+Mma-BT-Kernel: 0.0608 ms, 0.137971 throughput
+Mma-CBT-Kernel: 0.0846 ms, 0.0991561 throughput
+Mma-OBT-Kernel: 0.0574 ms, 0.146143 throughput
+Mma-OBT-Kernel-tiled: 0.0356 ms, 0.235635 throughput
+Mma-OBTS-Kernel: 0.0801 ms, 0.104727 throughput
+Mma-OBTS-Kernel-large: 0.1111 ms, 0.075505 throughput
+[HGEMM 2025-04-13 13:43:45 323266:323266 main.cu:507 main] Done

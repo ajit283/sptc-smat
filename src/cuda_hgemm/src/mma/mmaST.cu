@@ -25,7 +25,7 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
                                 size_t K, size_t nonzeroBlocks, int *blockInfo,
                                 int *relativeBlockIndexMapping) {
   int PRINT_THREAD_ID = 11;
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "got here 23423 \n");
   // M = M * 2;
   // N = N * 2;
   // mmaSTKernel
@@ -42,7 +42,7 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
   size_t blockIndex = blockRow * colRegions + blockCol;
 
   // print M
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "M: %d\n", M);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "M: %d\n", M);
 
   if (warp_row >= M || warp_col >= N) {
     return;
@@ -55,7 +55,7 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
   uint32_t RC[2] = {0, 0};
 
   // print K_tiles
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
 
 #pragma unroll
   for (size_t i = 0; i < K_tiles; ++i) {
@@ -87,12 +87,13 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
 
       *cur_meta = 0;
 
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID,
-                         "Block %d Lane %d src values: ", blockIndex, lane_id);
-      for (int k = 0; k < MMA_K / 2; ++k) {
-        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)src[k]);
-      }
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID,
+      //  "Block %d Lane %d src values: ", blockIndex, lane_id);
+      // for (int k = 0; k < MMA_K / 2; ++k) {
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ",
+      // (int)src[k]);
+      // }
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
 
 #pragma unroll
       for (int j = 0; j < 2; ++j) {
@@ -109,22 +110,26 @@ preprocessing_mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
         }
       }
 
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID,
-                         "Block %d Lane %d src_sparse values: ", blockIndex,
-                         lane_id);
-      for (int k = 0; k < MMA_K / 2 / 2; ++k) {
-        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)src_sparse[k]);
-      }
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID,
+      //  "Block %d Lane %d src_sparse values: ", blockIndex,
+      //  lane_id);
+      // for (int k = 0; k < MMA_K / 2 / 2; ++k) {
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ",
+      // (int)src_sparse[k]);
+      // }
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
 
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d metadata: \n",
-                         blockIndex, lane_id);
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane
+      // %d metadata: \n",
+      //  blockIndex, lane_id);
 
-      DEBUG_EXECUTE_ON_THREAD(
-          PRINT_THREAD_ID,
-          for (int i = 7; i >= 0; i--) { printf("%d", (cur_meta[0] >> i) & 1); }
+      //  DEBUG_EXECUTE_ON_THREAD(
+      //      PRINT_THREAD_ID,
+      //      for (int i = 7; i >= 0;
+      //           i--) { printf("%d", (cur_meta[0] >> i) &
+      //           1); }
 
-      )
+      //  )
 
       *(metadata + (relativeIndex * MMA_M * (MMA_K / 8) + lane_id)) = *cur_meta;
 
@@ -164,7 +169,7 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
   uint32_t RC[2] = {0, 0};
 
   // print K_tiles
-  DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
+  // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "K_tiles: %d\n", K_tiles);
 
   __shared__ half A_smem_sparse[MMA_M][MMA_K / 2];
   __shared__ half B_smem_sparse[MMA_N][MMA_K];
@@ -264,19 +269,21 @@ __global__ void mmaSTKernelSparse(half *bcsrValuesA, char *metadata,
       memcpy(&meta_value, metadata_local, sizeof(uint32_t));
 
       // print RA, RB
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RA: ", blockIndex,
-                         lane_id);
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RA: ",
+      // blockIndex,
+      //  lane_id);
       for (int k = 0; k < 4; ++k) {
-        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RA[k]);
+        // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RA[k]);
       }
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
 
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RB: ", blockIndex,
-                         lane_id);
-      for (int k = 0; k < 4; ++k) {
-        DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RB[k]);
-      }
-      DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "Block %d Lane %d RB: ",
+      // blockIndex,
+      //  lane_id);
+      // for (int k = 0; k < 4; ++k) {
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "%i ", (int)RB[k]);
+      // }
+      // DEBUG_PRINT_THREAD(PRINT_THREAD_ID, "\n");
 
       HMMA16816_SPARSE(RC[0], RC[1], RA[0], RA[1], RB[0], RB[1], RC[0], RC[1],
                        meta_value, 0x0);

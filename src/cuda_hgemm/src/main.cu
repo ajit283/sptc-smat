@@ -40,6 +40,7 @@ HGEMM_FUNC_SPARSE2(mmaBKernel);
 HGEMM_FUNC_SPARSE2(mmaBTKernel);
 HGEMM_FUNC_SPARSE2(mmaCBTKernel);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel);
+HGEMM_FUNC_SPARSE2(mmaOBTKernel_large);
 HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel_large);
@@ -88,7 +89,7 @@ DEFINE_bool(enable_check, false,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
-DEFINE_uint32(n_mult, 4, "n_mult * MMA_N = N");
+DEFINE_uint32(n_mult, 2, "n_mult * MMA_N = N");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_1024_0.4000.mtx",
@@ -99,9 +100,9 @@ DEFINE_uint32(n_mult, 4, "n_mult * MMA_N = N");
 //               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
-//               "2_4_sparse_mtx_2048_0.4000.mtx",
+//               "2_4_sparse_mtx_2048_0.1000.mtx",
 //               "input .mtx file");
-DEFINE_string(filename, "../sparse-gemm/build/mat_104857d_0s_1024x512_lg.mtx",
+DEFINE_string(filename, "../sparse-gemm/build/mat_1d_1s_1024x1024_lg.mtx",
               "input .mtx file");
 // DEFINE_string(filename, "../sparse-gemm/build/mat_50d_50s_128x128_sm.mtx",
 //               "input .mtx file");
@@ -454,20 +455,24 @@ int main(int argc, char *argv[]) {
                 FLAGS_profiling_iterations, FLAGS_sleep_duration,
                 FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
 
-  auto result_mmaT = tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  auto result_cublas = tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+  // auto result_mmaT = tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+  // auto result_cublas = tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
 
-  auto result_mmaST = tester.evaluateSparse24(
-      mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
+  // auto result_mmaST = tester.evaluateSparse24(
+  //     mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
   auto result_mmaST_large = tester.evaluateSparse24(
       mmaSTKernel_large, preprocessing_mmaSTKernel_large, "Mma-ST-Kernel-large",
       true);
 
-  auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  auto result_mmaCBT = tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+  // auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+  // auto result_mmaCBT = tester.evaluateSparse2(mmaCBTKernel,
+  // "Mma-CBT-Kernel");
   auto result_mmaOBT = tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  auto result_mmaOBT_tiled =
-      tester.evaluateSparse2_tiled(mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+  auto result_mmaOBT_large =
+      tester.evaluateSparse2(mmaOBTKernel_large, "Mma-OBT-large-Kernel");
+  // auto result_mmaOBT_tiled =
+  //     tester.evaluateSparse2_tiled(mmaOBTKernel_tiled,
+  //     "Mma-OBT-Kernel-tiled");
 
   auto result_mmaOBTS = tester.evaluateSparse24_2(
       mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
@@ -476,22 +481,26 @@ int main(int argc, char *argv[]) {
       "Mma-OBTS-Kernel-large", true);
 
   std::cout << "\nResults:\n";
-  std::cout << "Mma-T-Kernel: " << result_mmaT.first << " ms, "
-            << result_mmaT.second << " throughput\n";
-  std::cout << "Cublas-Tensor-Op: " << result_cublas.first << " ms, "
-            << result_cublas.second << " throughput\n";
-  std::cout << "Mma-ST-Kernel: " << result_mmaST.first << " ms, "
-            << result_mmaST.second << " throughput\n";
+  // std::cout << "Mma-T-Kernel: " << result_mmaT.first << " ms, "
+  //           << result_mmaT.second << " throughput\n";
+  // std::cout << "Cublas-Tensor-Op: " << result_cublas.first << " ms, "
+  //           << result_cublas.second << " throughput\n";
+  // std::cout << "Mma-ST-Kernel: " << result_mmaST.first << " ms, "
+  // << result_mmaST.second << " throughput\n";
   std::cout << "Mma-ST-Kernel-large: " << result_mmaST_large.first << " ms, "
             << result_mmaST_large.second << " throughput\n";
-  std::cout << "Mma-BT-Kernel: " << result_mmaBT.first << " ms, "
-            << result_mmaBT.second << " throughput\n";
-  std::cout << "Mma-CBT-Kernel: " << result_mmaCBT.first << " ms, "
-            << result_mmaCBT.second << " throughput\n";
+  // std::cout << "Mma-BT-Kernel: " << result_mmaBT.first << " ms, "
+  //           << result_mmaBT.second << " throughput\n";
+  // std::cout << "Mma-CBT-Kernel: " << result_mmaCBT.first << " ms, "
+  //           << result_mmaCBT.second << " throughput\n";
   std::cout << "Mma-OBT-Kernel: " << result_mmaOBT.first << " ms, "
             << result_mmaOBT.second << " throughput\n";
-  std::cout << "Mma-OBT-Kernel-tiled: " << result_mmaOBT_tiled.first << " ms, "
-            << result_mmaOBT_tiled.second << " throughput\n";
+  // std::cout << "Mma-OBT-large-Kernel: " << result_mmaOBT_large.first << " ms,
+  // "
+  //           << result_mmaOBT_large.second << " throughput\n";
+  // std::cout << "Mma-OBT-Kernel-tiled: " << result_mmaOBT_tiled.first << " ms,
+  // "
+  //           << result_mmaOBT_tiled.second << " throughput\n";
   std::cout << "Mma-OBTS-Kernel: " << result_mmaOBTS.first << " ms, "
             << result_mmaOBTS.second << " throughput\n";
   std::cout << "Mma-OBTS-Kernel-large: " << result_mmaOBTS_large.first

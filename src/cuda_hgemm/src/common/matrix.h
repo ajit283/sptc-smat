@@ -460,6 +460,7 @@ public:
   }
 
   void csrToBcsr() {
+    printf("mMMA_K %d\n", mMMA_K);
     // first prepare the info arrays
     size_t numColRegions = (m_col + mMMA_K - 1) / mMMA_K;
     size_t numRowRegions = (m_row + MMA_M - 1) / MMA_M;
@@ -568,6 +569,9 @@ public:
         bcsrVal_host[bcsrIndex] = val;
       }
     }
+
+    printf("bcsrRowPointer[0]: %d\n", bcsrRowPtr_host[0]);
+    printf("bcsrRowPointer[1]: %d\n", bcsrRowPtr_host[1]);
 
     /* for (int i = 0; i < num_blocks * blockSize; i++)
     {
@@ -680,7 +684,7 @@ public:
         half *vals =
             (half *)calloc(BLOCK * BLOCK * MMA_M * mMMA_K, sizeof(half));
         size_t dest_offset =
-            positionInBlock_y * mMMA_K * BLOCK + positionInBlock_x;
+            positionInBlock_y * mMMA_K * BLOCK + positionInBlock_x * MMA_M;
         size_t src_offset = i * MMA_M * mMMA_K;
         // std::cout << "Copying " << MMA_M * MMA_K << " values from offset "
         //           << src_offset << " to offset " << dest_offset << "\n";
