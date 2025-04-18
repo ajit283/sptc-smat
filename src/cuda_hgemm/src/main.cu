@@ -29,6 +29,14 @@
             size_t N, size_t K, size_t nonzeroBlocks, int *blockInfo,          \
             int *relativeBlockIndexMapping, int *tileInfo)
 
+#define HGEMM_FUNC_SPLIT(name)                                                 \
+  void name(/* 2:4  */ half *bcsrValuesA_sparse, int *bcsrRowPtrA_sparse,      \
+            int *bcsrColIdxA_sparse, /* dense*/ half *bcsrValuesA_dense,       \
+            int *bcsrRowPtrA_dense, int *bcsrColIdxA_dense,                    \
+            /* extra*/ char *metadata, half *sparseMatrixA, half *B, half *C,  \
+            size_t M, size_t N, size_t K, size_t nonzeroBlocks,                \
+            int *blockInfo, int *relativeBlockIndexMapping)
+
 HGEMM_FUNC(cublasTensorOp);
 
 HGEMM_FUNC_SPARSE(mmaNaiveKernel);
@@ -45,6 +53,7 @@ HGEMM_FUNC_SPARSE2(mmaOBTKernel_tiled);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel);
 HGEMM_FUNC_SPARSE24_2(mmaOBTSKernel_large);
 HGEMM_FUNC_SPARSE24_2_tiled(mmaOBTSKernel_tiled_large);
+HGEMM_FUNC_SPLIT(mmaOBTSKernel_large_separate);
 
 void preprocessing_mmaSTKernel(half *bcsrValuesA, char *metadata,
                                half *sparseMatrixA, size_t M, size_t N,
@@ -104,7 +113,8 @@ DEFINE_uint32(n_mult, 2, "n_mult * MMA_N = N");
 //               "input .mtx file");
 DEFINE_string(filename, "../sparse-gemm/build/mat_1d_1s_1024x1024_lg.mtx",
               "input .mtx file");
-// DEFINE_string(filename, "../sparse-gemm/build/mat_50d_50s_128x128_sm.mtx",
+// DEFINE_string(filename,
+// "../sparse-gemm/build/mat_50d_50s_128x128_sm.mtx",
 //               "input .mtx file");
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_2_4_sparse/"
@@ -113,7 +123,8 @@ DEFINE_string(filename, "../sparse-gemm/build/mat_1d_1s_1024x1024_lg.mtx",
 // DEFINE_string(filename,
 //               "./src/matrices/band_matrices_4_times/band_mtx_1024_512.mtx",
 //               "input .mtx file");
-// DEFINE_string(filename, "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
+// DEFINE_string(filename,
+// "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
 //               "input .mtx file");
 
 void testBcsrBlocking() {
@@ -317,7 +328,8 @@ void testBcsrBlocking() {
     size_t col = originalValue.col;
     float val = originalValue.value;
 
-    //     std::cout << "\nLooking for value " << val << " at (" << row << ","
+    //     std::cout << "\nLooking for value " << val << " at (" << row <<
+    //     ","
     //     << col
     //               << ")\n";
 
@@ -328,7 +340,8 @@ void testBcsrBlocking() {
 
       int blockStartCol = testMatrix.getMergedBcsrColIdxHost()[mergedBlock];
 
-      // Find which row contains this block by searching through row pointers
+      // Find which row contains this block by searching through row
+      // pointers
       int rowIdx = 0;
       while (rowIdx < testMatrix.getRow() / (BLOCK * MMA_M) &&
              testMatrix.getMergedBcsrRowPtrHost()[rowIdx + 1] <= mergedBlock) {
@@ -336,7 +349,8 @@ void testBcsrBlocking() {
       }
       int blockStartRow = rowIdx * BLOCK * MMA_M;
 
-      //  std::cout << "  Checking block " << mergedBlock << " starting at ("
+      //  std::cout << "  Checking block " << mergedBlock << " starting at
+      //  ("
       //            << blockStartRow << "," << blockStartCol << ")\n";
 
       // Check if this block could contain our value
@@ -358,7 +372,8 @@ void testBcsrBlocking() {
             __half2float(testMatrix.getMergedBcsrValuesHost()[offset]);
 
         //    std::cout << "    Found value " << mergedVal
-        //              << " at relative position (" << relRow << "," << relCol
+        //              << " at relative position (" << relRow << "," <<
+        //              relCol
         //              << ") offset " << offset << "\n";
 
         if (std::abs(mergedVal - val) < 1e-5) {
@@ -460,25 +475,29 @@ int main(int argc, char *argv[]) {
 
   // auto result_mmaST = tester.evaluateSparse24(
   //     mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
-  auto result_mmaST_large = tester.evaluateSparse24(
-      mmaSTKernel_large, preprocessing_mmaSTKernel_large, "Mma-ST-Kernel-large",
-      true);
+  // auto result_mmaST_large = tester.evaluateSparse24(
+  //     mmaSTKernel_large, preprocessing_mmaSTKernel_large,
+  //     "Mma-ST-Kernel-large", true);
 
   // auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
   // auto result_mmaCBT = tester.evaluateSparse2(mmaCBTKernel,
-  // "Mma-CBT-Kernel");
-  auto result_mmaOBT = tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-  auto result_mmaOBT_large =
-      tester.evaluateSparse2(mmaOBTKernel_large, "Mma-OBT-large-Kernel");
+  // "Mma-CBT-Kernel"); auto result_mmaOBT =
+  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel"); auto
+  // result_mmaOBT_large =
+  //     tester.evaluateSparse2(mmaOBTKernel_large, "Mma-OBT-large-Kernel");
   // auto result_mmaOBT_tiled =
   //     tester.evaluateSparse2_tiled(mmaOBTKernel_tiled,
   //     "Mma-OBT-Kernel-tiled");
 
-  auto result_mmaOBTS = tester.evaluateSparse24_2(
-      mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
+  // auto result_mmaOBTS = tester.evaluateSparse24_2(
+  //     mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
   auto result_mmaOBTS_large = tester.evaluateSparse24_2(
       mmaOBTSKernel_large, preprocessing_mmaSTKernel_large,
       "Mma-OBTS-Kernel-large", true);
+  auto result_mmaOBTS_large_separate = tester.evaluateSplit(
+      mmaOBTSKernel_large_separate,    //  the host stub with dense+sparse
+      preprocessing_mmaSTKernel_large, //  your 2:4 metadata packer
+      "Mma-OBTS-large-separate", true);
 
   std::cout << "\nResults:\n";
   // std::cout << "Mma-T-Kernel: " << result_mmaT.first << " ms, "
@@ -486,25 +505,26 @@ int main(int argc, char *argv[]) {
   // std::cout << "Cublas-Tensor-Op: " << result_cublas.first << " ms, "
   //           << result_cublas.second << " throughput\n";
   // std::cout << "Mma-ST-Kernel: " << result_mmaST.first << " ms, "
-  // << result_mmaST.second << " throughput\n";
-  std::cout << "Mma-ST-Kernel-large: " << result_mmaST_large.first << " ms, "
-            << result_mmaST_large.second << " throughput\n";
+  //           << result_mmaST.second << " throughput\n";
+  // std::cout << "Mma-ST-Kernel-large: " << result_mmaST_large.first << " ms, "
+  //           << result_mmaST_large.second << " throughput\n";
   // std::cout << "Mma-BT-Kernel: " << result_mmaBT.first << " ms, "
   //           << result_mmaBT.second << " throughput\n";
   // std::cout << "Mma-CBT-Kernel: " << result_mmaCBT.first << " ms, "
   //           << result_mmaCBT.second << " throughput\n";
-  std::cout << "Mma-OBT-Kernel: " << result_mmaOBT.first << " ms, "
-            << result_mmaOBT.second << " throughput\n";
-  // std::cout << "Mma-OBT-large-Kernel: " << result_mmaOBT_large.first << " ms,
-  // "
+  // std::cout << "Mma-OBT-Kernel: " << result_mmaOBT.first << " ms, "
+  //           << result_mmaOBT.second << " throughput\n";
+  // std::cout << "Mma-OBT-large-Kernel: " << result_mmaOBT_large.first << "ms,"
   //           << result_mmaOBT_large.second << " throughput\n";
-  // std::cout << "Mma-OBT-Kernel-tiled: " << result_mmaOBT_tiled.first << " ms,
-  // "
+  // std::cout << "Mma-OBT-Kernel-tiled: " << result_mmaOBT_tiled.first << "ms,"
   //           << result_mmaOBT_tiled.second << " throughput\n";
-  std::cout << "Mma-OBTS-Kernel: " << result_mmaOBTS.first << " ms, "
-            << result_mmaOBTS.second << " throughput\n";
+  // std::cout << "Mma-OBTS-Kernel: " << result_mmaOBTS.first << " ms, "
+  //           << result_mmaOBTS.second << " throughput\n";
   std::cout << "Mma-OBTS-Kernel-large: " << result_mmaOBTS_large.first
             << " ms, " << result_mmaOBTS_large.second << " throughput\n";
+  std::cout << "Mma-OBTS-Kernel-large-separate: "
+            << result_mmaOBTS_large_separate.first << " ms, "
+            << result_mmaOBTS_large_separate.second << " throughput\n";
   // tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
   //                                 preprocessing_mmaOBTSKernel_tiled_large,
   //                                 "Mma-OBTS-Kernel-tiled-large", true);

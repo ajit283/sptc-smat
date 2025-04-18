@@ -199,6 +199,7 @@ public:
 
     csrToBcsr();
     bcsrBlocking();
+    filterBcsrBlocks();
     // csrToBcsrKnapsacking();
     HLOG("Finished creating BCSR from CSR");
     HLOG("%zu total blocks, %zu nonzero blocks, %zu dense blocks, %zu sparse "
@@ -303,6 +304,10 @@ public:
 
   int *getBcsrColIdx() { return bcsrColIdx_dev; }
 
+  size_t getSparseBlocks() { return sparseBlocks; }
+
+  size_t getDenseBlocks() { return denseBlocks; }
+
   // Add to SparseMatrix class:
   half *getBcsrValuesHost() { return bcsrVal_host; }
   int *getBcsrRowPtrHost() { return bcsrRowPtr_host; }
@@ -344,6 +349,42 @@ public:
   int *getMergedTileInfo_dev() { return mergedTileInfo_dev; }
 
   size_t getMergedNonzeroBlocks() { return mergedNonzeroBlocks; }
+
+  // Getters for 2:4 sparse BCSR blocks
+  half *getSparseBcsrValues() { return sparseBcsrVal_dev; }
+  int *getSparseBcsrRowPtr() { return sparseBcsrRowPtr_dev; }
+  int *getSparseBcsrColIdx() { return sparseBcsrColIdx_dev; }
+
+  // Getters for dense BCSR blocks
+  half *getDenseBcsrValues() { return denseBcsrVal_dev; }
+  int *getDenseBcsrRowPtr() { return denseBcsrRowPtr_dev; }
+  int *getDenseBcsrColIdx() { return denseBcsrColIdx_dev; }
+
+  // **** New getters for sparse block info and mapping ****
+  int *getSparseBlockInfo_dev() { return sparseBlockInfo_dev; }
+  int *getSparseRelativeBlockIndexMapping_dev() {
+    return sparseRelativeBlockIndexMapping_dev;
+  }
+
+  // --- In the SparseMatrix class public section ---
+
+  // Host getters for filtered sparse BCSR properties
+  half *getSparseBcsrValuesHost() { return sparseBcsrVal_host; }
+  int *getSparseBcsrRowPtrHost() { return sparseBcsrRowPtr_host; }
+  int *getSparseBcsrColIdxHost() { return sparseBcsrColIdx_host; }
+
+  // Host getter for the sparse block info array (all ones)
+  int *getSparseBlockInfoHost() { return sparseBlockInfo_host; }
+
+  // Host getter for the sparse relative block index mapping
+  int *getSparseRelativeBlockIndexMappingHost() {
+    return sparseRelativeBlockIndexMapping_host;
+  }
+
+  // Host getters for filtered dense BCSR properties
+  half *getDenseBcsrValuesHost() { return denseBcsrVal_host; }
+  int *getDenseBcsrRowPtrHost() { return denseBcsrRowPtr_host; }
+  int *getDenseBcsrColIdxHost() { return denseBcsrColIdx_host; }
 
   void tearUp(Matrix *base) {
     HGEMM_CHECK(base);
@@ -933,6 +974,156 @@ public:
   }
   // -----
 
+  void filterBcsrBlocks() {
+    // Determine the number of block regions.
+    int numRowRegions =
+        m_row / MMA_M; // Adjust if m_row isn't an exact multiple.
+    int numColRegions = (m_col + mMMA_K - 1) / mMMA_K;
+
+    // Create temporary row pointer vectors for sparse and dense blocks.
+    std::vector<int> sparseRowPtr(numRowRegions + 1, 0);
+    std::vector<int> denseRowPtr(numRowRegions + 1, 0);
+
+    // First pass: count blocks per block row.
+    for (int r = 0; r < numRowRegions; r++) {
+      int sparseCount = 0;
+      int denseCount = 0;
+      for (int c = 0; c < numColRegions; c++) {
+        int global_index = r * numColRegions + c;
+        if (blockInfo_host[global_index] == 1) {
+          sparseCount++;
+        } else if (blockInfo_host[global_index] == 2) {
+          denseCount++;
+        }
+      }
+      sparseRowPtr[r + 1] = sparseRowPtr[r] + sparseCount;
+      denseRowPtr[r + 1] = denseRowPtr[r] + denseCount;
+    }
+
+    int totalSparseBlocks = sparseRowPtr[numRowRegions];
+    int totalDenseBlocks = denseRowPtr[numRowRegions];
+
+    // Allocate host arrays for the filtered sparse blocks.
+    sparseBcsrRowPtr_host = (int *)malloc((numRowRegions + 1) * sizeof(int));
+    sparseBcsrColIdx_host = (int *)malloc(totalSparseBlocks * sizeof(int));
+    sparseBcsrVal_host =
+        (half *)calloc(totalSparseBlocks * MMA_M * mMMA_K, sizeof(half));
+
+    // Allocate host arrays for the filtered dense blocks.
+    denseBcsrRowPtr_host = (int *)malloc((numRowRegions + 1) * sizeof(int));
+    denseBcsrColIdx_host = (int *)malloc(totalDenseBlocks * sizeof(int));
+    denseBcsrVal_host =
+        (half *)calloc(totalDenseBlocks * MMA_M * mMMA_K, sizeof(half));
+
+    // Copy the row pointer vectors to our host arrays.
+    memcpy(sparseBcsrRowPtr_host, sparseRowPtr.data(),
+           (numRowRegions + 1) * sizeof(int));
+    memcpy(denseBcsrRowPtr_host, denseRowPtr.data(),
+           (numRowRegions + 1) * sizeof(int));
+
+    // Create counters for each block row.
+    std::vector<int> sparseRowCounter(numRowRegions, 0);
+    std::vector<int> denseRowCounter(numRowRegions, 0);
+
+    // Second pass: fill in column indices and block values.
+    for (int r = 0; r < numRowRegions; r++) {
+      for (int c = 0; c < numColRegions; c++) {
+        int global_index = r * numColRegions + c;
+        int relIndex = relativeBlockIndexMapping_host[global_index];
+        if (relIndex < 0)
+          continue; // Skip zero blocks.
+
+        if (blockInfo_host[global_index] == 1) { // 2:4 sparse block.
+          int idx = sparseRowPtr[r] + sparseRowCounter[r];
+          sparseBcsrColIdx_host[idx] = bcsrColIdx_host[relIndex];
+          memcpy(sparseBcsrVal_host + idx * MMA_M * mMMA_K,
+                 bcsrVal_host + relIndex * MMA_M * mMMA_K,
+                 MMA_M * mMMA_K * sizeof(half));
+          sparseRowCounter[r]++;
+        } else if (blockInfo_host[global_index] == 2) { // Dense block.
+          int idx = denseRowPtr[r] + denseRowCounter[r];
+          denseBcsrColIdx_host[idx] = bcsrColIdx_host[relIndex];
+          memcpy(denseBcsrVal_host + idx * MMA_M * mMMA_K,
+                 bcsrVal_host + relIndex * MMA_M * mMMA_K,
+                 MMA_M * mMMA_K * sizeof(half));
+          denseRowCounter[r]++;
+        }
+      }
+    }
+
+    // Allocate and copy device memory for the sparse blocks.
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&sparseBcsrVal_dev,
+                   totalSparseBlocks * MMA_M * mMMA_K * sizeof(half)));
+    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&sparseBcsrRowPtr_dev,
+                                        (numRowRegions + 1) * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&sparseBcsrColIdx_dev,
+                                        totalSparseBlocks * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMemcpy(sparseBcsrVal_dev, sparseBcsrVal_host,
+                   totalSparseBlocks * MMA_M * mMMA_K * sizeof(half),
+                   cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMemcpy(sparseBcsrRowPtr_dev, sparseBcsrRowPtr_host,
+                   (numRowRegions + 1) * sizeof(int), cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMemcpy(sparseBcsrColIdx_dev, sparseBcsrColIdx_host,
+                   totalSparseBlocks * sizeof(int), cudaMemcpyHostToDevice));
+
+    // Allocate and copy device memory for the dense blocks.
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&denseBcsrVal_dev,
+                   totalDenseBlocks * MMA_M * mMMA_K * sizeof(half)));
+    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&denseBcsrRowPtr_dev,
+                                        (numRowRegions + 1) * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&denseBcsrColIdx_dev,
+                                        totalDenseBlocks * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMemcpy(denseBcsrVal_dev, denseBcsrVal_host,
+                   totalDenseBlocks * MMA_M * mMMA_K * sizeof(half),
+                   cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMemcpy(denseBcsrRowPtr_dev, denseBcsrRowPtr_host,
+                   (numRowRegions + 1) * sizeof(int), cudaMemcpyHostToDevice));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMemcpy(denseBcsrColIdx_dev, denseBcsrColIdx_host,
+                   totalDenseBlocks * sizeof(int), cudaMemcpyHostToDevice));
+
+    // **** Create a sparse block info array (for filtered sparse blocks) ****
+    // Since all blocks here are 2:4 sparse, we simply fill with 1's.
+    sparseBlockInfo_host = (int *)malloc(totalSparseBlocks * sizeof(int));
+    for (int i = 0; i < totalSparseBlocks; i++) {
+      sparseBlockInfo_host[i] = 1;
+    }
+    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void **)&sparseBlockInfo_dev,
+                                        totalSparseBlocks * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMemcpy(sparseBlockInfo_dev, sparseBlockInfo_host,
+                   totalSparseBlocks * sizeof(int), cudaMemcpyHostToDevice));
+
+    // **** Create a relative block index mapping for only the sparse blocks
+    // **** This mapping is defined over the global block grid.
+    int totalGlobalBlocks = numRowRegions * numColRegions;
+    sparseRelativeBlockIndexMapping_host =
+        (int *)malloc(totalGlobalBlocks * sizeof(int));
+    int sparseCounter = 0;
+    for (int i = 0; i < totalGlobalBlocks; i++) {
+      if (blockInfo_host[i] == 1) {
+        sparseRelativeBlockIndexMapping_host[i] = sparseCounter;
+        sparseCounter++;
+      } else {
+        sparseRelativeBlockIndexMapping_host[i] = -1;
+      }
+    }
+    HGEMM_CHECK_CUDART_ERROR(
+        cudaMalloc((void **)&sparseRelativeBlockIndexMapping_dev,
+                   totalGlobalBlocks * sizeof(int)));
+    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(sparseRelativeBlockIndexMapping_dev,
+                                        sparseRelativeBlockIndexMapping_host,
+                                        totalGlobalBlocks * sizeof(int),
+                                        cudaMemcpyHostToDevice));
+  }
+
   void csrToBcsrKnapsacking() {
     size_t numColRegions = (m_col + mMMA_K - 1) / mMMA_K;
     size_t numRowRegions = (m_row + MMA_M - 1) / MMA_M;
@@ -1182,6 +1373,34 @@ private:
 
   int *blockInfo_dev = nullptr;
   int *relativeBlockIndexMapping_dev = nullptr;
+
+  half *sparseBcsrVal_host = nullptr;
+  int *sparseBcsrRowPtr_host = nullptr;
+  int *sparseBcsrColIdx_host = nullptr;
+
+  half *sparseBcsrVal_dev = nullptr;
+  int *sparseBcsrRowPtr_dev = nullptr;
+  int *sparseBcsrColIdx_dev = nullptr;
+
+  // New members for filtered dense blocks
+  half *denseBcsrVal_host = nullptr;
+  int *denseBcsrRowPtr_host = nullptr;
+  int *denseBcsrColIdx_host = nullptr;
+
+  half *denseBcsrVal_dev = nullptr;
+  int *denseBcsrRowPtr_dev = nullptr;
+  int *denseBcsrColIdx_dev = nullptr;
+
+  // **** New members for sparse block info and sparse relative mapping ****
+  // For consistency: a sparse block info array (all ones) for the filtered
+  // sparse blocks
+  int *sparseBlockInfo_host = nullptr;
+  int *sparseBlockInfo_dev = nullptr;
+
+  // A relative block index mapping for only the sparse blocks over the global
+  // grid
+  int *sparseRelativeBlockIndexMapping_host = nullptr;
+  int *sparseRelativeBlockIndexMapping_dev = nullptr;
 
   size_t numberOfBlocks = 0;
   size_t nonzeroBlocks = 0;

@@ -24,9 +24,9 @@ __global__ void mmaOBTSKernelSparse_large(half *bcsrValuesA, int *bcsrRowPtrA,
                                           int *relativeBlockIndexMapping) {
 
   const size_t K_tiles = div_ceil(K, MMA_K);
+  // DEBUG_PRINT_THREAD(0, "(GPU) bcsrRowPtrA[1]: %d\n", bcsrRowPtrA[1]);
 
   // DEBUG_PRINT_THREAD(0, "(GPU) bcsrRowPtrA[0]: %d\n", bcsrRowPtrA[0]);
-  // DEBUG_PRINT_THREAD(0, "(GPU) bcsrRowPtrA[1]: %d\n", bcsrRowPtrA[1]);
 
   const size_t warp_row = blockIdx.y * MMA_M;
   const size_t warp_col = blockIdx.x * MMA_N;
