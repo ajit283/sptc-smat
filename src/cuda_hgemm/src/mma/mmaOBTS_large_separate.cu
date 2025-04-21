@@ -16,7 +16,8 @@
 #define NUM_STAGES 2
 
 __global__ void mmaOBTSKernelSparse_24sparse(
-    half *bcsrValuesA, int *bcsrRowPtrA, int *bcsrColIdxA, char *metadata,
+    half *bcsrValuesA, int *bcsrRowPtrA_sparse, int *bcsrColIdxA_sparse,
+    int *bcsrRowPtrA_dense, int *bcsrColIdxA_dense, char *metadata,
     half *sparseMatrixA, half *B, half *C, size_t M, size_t N, size_t K,
     size_t nonzeroBlocks, int *blockInfo, int *relativeBlockIndexMapping) {
   const size_t K_tiles = div_ceil(K, MMA_K);
@@ -36,8 +37,8 @@ __global__ void mmaOBTSKernelSparse_24sparse(
     return;
   }
 
-  size_t start = bcsrRowPtrA[blockRow];
-  size_t end = bcsrRowPtrA[blockRow + 1];
+  size_t start = bcsrRowPtrA_sparse[blockRow];
+  size_t end = bcsrRowPtrA_sparse[blockRow + 1];
 
   __shared__ half A_smem[NUM_STAGES][MMA_M][MMA_K];
   __shared__ half B_smem[NUM_STAGES][MMA_N][MMA_K];
@@ -60,7 +61,7 @@ __global__ void mmaOBTSKernelSparse_24sparse(
   auto loadStages = [&] __device__(size_t stage_ptr, int stage) {
     if (stage_ptr < end) {
 
-      size_t i = bcsrColIdxA[stage_ptr] / MMA_K;
+      size_t i = bcsrColIdxA_sparse[stage_ptr] / MMA_K;
       // skip empty block
       size_t blockIndex = blockRow * colRegions + i;
 
@@ -101,7 +102,7 @@ __global__ void mmaOBTSKernelSparse_24sparse(
   for (int stage = 0; stage < NUM_STAGES; ++stage) {
     pipe.producer_acquire();
 
-    size_t ptr = bcsrRowPtrA[blockRow] + stage;
+    size_t ptr = bcsrRowPtrA_sparse[blockRow] + stage;
     loadStages(ptr, stage);
 
     pipe.producer_commit();
@@ -121,7 +122,7 @@ __global__ void mmaOBTSKernelSparse_24sparse(
     // DEBUG_PRINT_THREAD(0, "bcsrColIdxA[ptr]: %d\n", bcsrColIdxA[ptr]);
 
     cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
-    size_t i = bcsrColIdxA[ptr] / MMA_K;
+    size_t i = bcsrColIdxA_sparse[ptr] / MMA_K;
     // skip empty block
     size_t blockIndex = blockRow * colRegions + i;
 
@@ -179,6 +180,127 @@ __global__ void mmaOBTSKernelSparse_24sparse(
     size_t stage_ptr = ptr + NUM_STAGES;
 
     loadStages(stage_ptr, stage);
+
+    pipe.producer_commit();
+
+    stage = (stage + 1) % NUM_STAGES;
+  }
+
+  start = bcsrRowPtrA_dense[blockRow];
+  end = bcsrRowPtrA_dense[blockRow + 1];
+
+  auto loadStages_sparse = [&] __device__(size_t stage_ptr, int stage) {
+    if (stage_ptr < end) {
+
+      size_t i = bcsrColIdxA_dense[stage_ptr] / MMA_K;
+      // skip empty block
+      size_t blockIndex = blockRow * colRegions + i;
+
+      size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+
+      size_t A_size = MMA_M * MMA_K * sizeof(half);
+      size_t B_size = MMA_N * MMA_K * sizeof(half);
+
+      int sparsityInfo = blockInfo[blockIndex];
+
+      if (stage == 0) {
+        sparsityStage0 = sparsityInfo;
+      }
+
+      if (stage == 1) {
+        sparsityStage1 = sparsityInfo;
+      }
+
+      cuda::memcpy_async(
+          ((long4 *)(&A_smem[stage][lane_id / 2][0]) + lane_id % 2),
+          (((long4 *)(&bcsrValuesA[(relativeIndex)*MMA_M * MMA_K +
+                                   (lane_id / 2) * MMA_K]) +
+            lane_id % 2)),
+          sizeof(long4), pipe);
+
+      // For matrix B
+      if (lane_id < MMA_N * 2) { // Original condition preserved
+        cuda::memcpy_async(
+            ((long4 *)(&B_smem[stage][lane_id / 2][0]) + lane_id % 2),
+            ((long4 *)(&B[i * MMA_K + (warp_col + lane_id / 2) * K]) +
+             lane_id % 2),
+            sizeof(long4), pipe);
+      }
+    }
+  };
+
+  // Load all pipeline stages.
+  for (int stage = 0; stage < NUM_STAGES; ++stage) {
+    pipe.producer_acquire();
+
+    size_t ptr = bcsrRowPtrA_dense[blockRow] + stage;
+    loadStages_sparse(ptr, stage);
+
+    pipe.producer_commit();
+  }
+
+  stage = 0;
+  // int counter = 0;
+  // DEBUG_PRINT_THREAD(0, "start_pointer: %d\n", bcsrRowPtrA[blockRow]);
+  // DEBUG_PRINT_THREAD(0, "end_pointer: %d\n", bcsrRowPtrA[blockRow + 1]);
+
+#pragma unroll
+  for (size_t ptr = start; ptr < end; ptr++) {
+    // counter++;
+    // DEBUG_PRINT_THREAD(0, "counter: %d\n", counter);
+    // DEBUG_PRINT_THREAD(0, "bcsrColIdxA[ptr]: %d\n", bcsrColIdxA[ptr]);
+
+    cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
+    size_t i = bcsrColIdxA_dense[ptr] / MMA_K;
+    // skip empty block
+    size_t blockIndex = blockRow * colRegions + i;
+
+    size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+
+    size_t A_size = MMA_M * MMA_K * sizeof(half);
+    size_t B_size = MMA_N * MMA_K * sizeof(half);
+
+    // int sparsityInfo = blockInfo[blockIndex];
+    // int sparsityInfo = 1;
+    // int sparsityInfo = sparsity1;
+    int sparsityInfo = stage == 1 ? sparsityStage1 : sparsityStage0;
+    // __syncthreads();
+
+    uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+        &A_smem[stage][lane_id % 16][(lane_id / 16) * 8]);
+    LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
+                A_smem_lane_addr);
+
+    uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+        &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8]);
+    LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
+
+    HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
+              RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
+
+    A_smem_lane_addr = __cvta_generic_to_shared(
+        &A_smem[stage][lane_id % 16][(lane_id / 16) * 8 + 16]);
+    LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
+                A_smem_lane_addr);
+
+    B_smem_lane_addr = __cvta_generic_to_shared(
+        &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * 8 + 16]);
+    LDMATRIX_X2(RB[stage][0], RB[stage][1], B_smem_lane_addr);
+
+    HMMA16816(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
+              RA[stage][3], RB[stage][0], RB[stage][1], RC[0], RC[1]);
+
+    // __syncthreads();
+
+    // Release the consumed stage.
+    pipe.consumer_release();
+
+    // Pre-load data for `num_stages` into the future.
+    pipe.producer_acquire();
+
+    size_t stage_ptr = ptr + NUM_STAGES;
+
+    loadStages_sparse(stage_ptr, stage);
 
     pipe.producer_commit();
 
@@ -389,34 +511,34 @@ void mmaOBTSKernel_large_separate(
   dim3 block(WARP_SIZE);
   dim3 grid(div_ceil(N, MMA_N), div_ceil(M, MMA_M));
 
-  // Allocate temporary device buffers
-  half *C_sparse = nullptr;
-  half *C_dense = nullptr;
-  const size_t matrix_size = M * N * sizeof(half);
+  // // Allocate temporary device buffers
+  // half *C_sparse = nullptr;
+  // half *C_dense = nullptr;
+  // const size_t matrix_size = M * N * sizeof(half);
 
-  // Allocate temporary buffers
-  cudaMalloc(&C_sparse, matrix_size);
-  cudaMalloc(&C_dense, matrix_size);
+  // // Allocate temporary buffers
+  // cudaMalloc(&C_sparse, matrix_size);
+  // cudaMalloc(&C_dense, matrix_size);
 
-  // Zero-initialize the buffers
-  cudaMemset(C_sparse, 0, matrix_size);
-  cudaMemset(C_dense, 0, matrix_size);
+  // // Zero-initialize the buffers
+  // cudaMemset(C_sparse, 0, matrix_size);
+  // cudaMemset(C_dense, 0, matrix_size);
 
   mmaOBTSKernelSparse_24sparse<<<grid, block>>>(
-      bcsrValuesA_sparse, bcsrRowPtrA_sparse, bcsrColIdxA_sparse, metadata,
-      sparseMatrixA, B, C_sparse, M, N, K, nonzeroBlocks, blockInfo,
-      relativeBlockIndexMapping);
-  mmaOBTSKernelDense_dense<<<grid, block>>>(
-      bcsrValuesA_dense, bcsrRowPtrA_dense, bcsrColIdxA_dense, metadata,
-      sparseMatrixA, B, C_dense, M, N, K, nonzeroBlocks, blockInfo,
-      relativeBlockIndexMapping);
+      bcsrValuesA_sparse, bcsrRowPtrA_sparse, bcsrColIdxA_sparse,
+      bcsrRowPtrA_dense, bcsrColIdxA_dense, metadata, sparseMatrixA, B, C, M, N,
+      K, nonzeroBlocks, blockInfo, relativeBlockIndexMapping);
+  // mmaOBTSKernelDense_dense<<<grid, block>>>(
+  //     bcsrValuesA_dense, bcsrRowPtrA_dense, bcsrColIdxA_dense, metadata,
+  //     sparseMatrixA, B, C_dense, M, N, K, nonzeroBlocks, blockInfo,
+  //     relativeBlockIndexMapping);
 
-  // Combine the results
-  const int threadsPerBlock = 256;
-  const int numBlocks = div_ceil(M * N, threadsPerBlock);
-  combineKernel<<<numBlocks, threadsPerBlock>>>(C_sparse, C_dense, C, M * N);
+  // // Combine the results
+  // const int threadsPerBlock = 256;
+  // const int numBlocks = div_ceil(M * N, threadsPerBlock);
+  // combineKernel<<<numBlocks, threadsPerBlock>>>(C_sparse, C_dense, C, M * N);
 
-  // Free temporary buffers
-  cudaFree(C_sparse);
-  cudaFree(C_dense);
+  // // Free temporary buffers
+  // cudaFree(C_sparse);
+  // cudaFree(C_dense);
 }
