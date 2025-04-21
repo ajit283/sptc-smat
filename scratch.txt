@@ -1,12 +1,129 @@
-Results:
-Mma-T-Kernel: 0.0567 ms, 0.147947 throughput
-Cublas-Tensor-Op: 0.31744 ms, 54.1201 throughput
-Mma-ST-Kernel: 0.05 ms, 0.167772 throughput
-Mma-ST-Kernel-large: 0.0414 ms, 0.202623 throughput
-Mma-BT-Kernel: 0.0608 ms, 0.137971 throughput
-Mma-CBT-Kernel: 0.0846 ms, 0.0991561 throughput
-Mma-OBT-Kernel: 0.0574 ms, 0.146143 throughput
-Mma-OBT-Kernel-tiled: 0.0356 ms, 0.235635 throughput
-Mma-OBTS-Kernel: 0.0801 ms, 0.104727 throughput
-Mma-OBTS-Kernel-large: 0.1111 ms, 0.075505 throughput
-[HGEMM 2025-04-13 13:43:45 323266:323266 main.cu:507 main] Done
+Results for matrix: mat_0d_1s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.1809 ms, 0.47481 throughput
+Mma-BT-Kernel: 0.0232 ms, 3.70229 throughput
+Mma-CBT-Kernel: 0.0304 ms, 2.82543 throughput
+Mma-ST-Kernel: 0.2153 ms, 0.398946 throughput
+Mma-ST-Kernel-large: 0.1454 ms, 1.17471 throughput
+Mma-OBT-Kernel: 0.0194 ms, 4.42748 throughput
+Mma-OBT-large-Kernel: 0.0195 ms, 4.40478 throughput
+Mma-OBT-Kernel-tiled: 0.1726 ms, 0.497643 throughput
+Mma-OBTS-Kernel: 0.0297 ms, 2.89202 throughput
+Mma-OBTS-Kernel-large: 0.0184 ms, 4.66766 throughput
+Mma-OBTS-large-separate: 0.016 ms, 5.36781 throughput
+
+
+Results for matrix: mat_1d_0s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.1808 ms, 0.475073 throughput
+Mma-BT-Kernel: 0.0232 ms, 3.70229 throughput
+Mma-CBT-Kernel: 0.03 ms, 2.8631 throughput
+Mma-ST-Kernel: 0.2149 ms, 0.399689 throughput
+Mma-ST-Kernel-large: 0.1491 ms, 1.14688 throughput
+Mma-OBT-Kernel: 0.0188 ms, 4.56878 throughput
+Mma-OBT-large-Kernel: 0.0189 ms, 4.54461 throughput
+Mma-OBT-Kernel-tiled: 0.1736 ms, 0.494776 throughput
+Mma-OBTS-Kernel: 0.023 ms, 3.73448 throughput
+Mma-OBTS-Kernel-large: 0.0309 ms, 2.77945 throughput
+Mma-OBTS-large-separate: 0.0301 ms, 2.85332 throughput
+
+Results for matrix: mat_1d_1s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.193 ms, 0.890084 throughput
+Mma-BT-Kernel: 0.0418 ms, 4.10972 throughput
+Mma-CBT-Kernel: 0.0551 ms, 3.11772 throughput
+Mma-ST-Kernel: 0.2246 ms, 0.764854 throughput
+Mma-ST-Kernel-large: 0.1675 ms, 2.03074 throughput
+Mma-OBT-Kernel: 0.034 ms, 5.05254 throughput
+Mma-OBT-large-Kernel: 0.034 ms, 5.05254 throughput
+Mma-OBT-Kernel-tiled: 0.3103 ms, 0.553613 throughput
+Mma-OBTS-Kernel: 0.0478 ms, 3.59385 throughput
+Mma-OBTS-Kernel-large: 0.0427 ms, 4.02271 throughput
+Mma-OBTS-large-separate: 0.0409 ms, 4.19975 throughput
+
+
+Results for matrix: mat_5d_5s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.4708 ms, 1.82451 throughput
+Mma-BT-Kernel: 0.2879 ms, 2.98361 throughput
+Mma-CBT-Kernel: 0.3112 ms, 2.76022 throughput
+Mma-ST-Kernel: 0.47 ms, 1.82762 throughput
+Mma-ST-Kernel-large: 0.4444 ms, 3.67254 throughput
+Mma-OBT-Kernel: 0.2434 ms, 3.52909 throughput
+Mma-OBT-large-Kernel: 0.2434 ms, 3.52909 throughput
+Mma-OBT-Kernel-tiled: 0.9008 ms, 0.953575 throughput
+Mma-OBTS-Kernel: 0.289 ms, 2.97225 throughput
+Mma-OBTS-Kernel-large: 0.2217 ms, 3.87452 throughput
+Mma-OBTS-large-separate: 0.2019 ms, 4.25448 throughput
+
+Results for matrix: mat_0d_10s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.4717 ms, 1.82105 throughput
+Mma-BT-Kernel: 0.2891 ms, 2.97125 throughput
+Mma-CBT-Kernel: 0.3111 ms, 2.76113 throughput
+Mma-ST-Kernel: 0.4704 ms, 1.82608 throughput
+Mma-ST-Kernel-large: 0.3941 ms, 4.1377 throughput
+Mma-OBT-Kernel: 0.244 ms, 3.52044 throughput
+Mma-OBT-large-Kernel: 0.2446 ms, 3.51181 throughput
+Mma-OBT-Kernel-tiled: 0.8911 ms, 0.963964 throughput
+Mma-OBTS-Kernel: 0.3356 ms, 2.55956 throughput
+Mma-OBTS-Kernel-large: 0.2227 ms, 3.85712 throughput
+Mma-OBTS-large-separate: 0.1584 ms, 5.42286 throughput
+
+Results for matrix: mat_10d_0s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.4764 ms, 1.80308 throughput
+Mma-BT-Kernel: 0.2922 ms, 2.93973 throughput
+Mma-CBT-Kernel: 0.3161 ms, 2.71746 throughput
+Mma-ST-Kernel: 0.4697 ms, 1.8288 throughput
+Mma-ST-Kernel-large: 0.4997 ms, 3.26473 throughput
+Mma-OBT-Kernel: 0.2466 ms, 3.48333 throughput
+Mma-OBT-large-Kernel: 0.2468 ms, 3.4805 throughput
+Mma-OBT-Kernel-tiled: 0.8986 ms, 0.955919 throughput
+Mma-OBTS-Kernel: 0.268 ms, 3.20518 throughput
+Mma-OBTS-Kernel-large: 0.3 ms, 2.86327 throughput
+Mma-OBTS-large-separate: 0.2703 ms, 3.17788 throughput
+
+
+Results for matrix: mat_10d_10s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.6832 ms, 2.5146 throughput
+Mma-BT-Kernel: 0.5385 ms, 3.1903 throughput
+Mma-CBT-Kernel: 0.5773 ms, 2.97588 throughput
+Mma-ST-Kernel: 0.6655 ms, 2.58148 throughput
+Mma-ST-Kernel-large: 0.74 ms, 4.17745 throughput
+Mma-OBT-Kernel: 0.4637 ms, 3.70493 throughput
+Mma-OBT-large-Kernel: 0.4639 ms, 3.70334 throughput
+Mma-OBT-Kernel-tiled: 1.0677 ms, 1.60904 throughput
+Mma-OBTS-Kernel: 0.5197 ms, 3.30571 throughput
+Mma-OBTS-Kernel-large: 0.4075 ms, 4.21585 throughput
+Mma-OBTS-large-separate: 0.3989 ms, 4.30675 throughput
+
+Results for matrix: mat_0d_20s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.6802 ms, 2.52571 throughput
+Mma-BT-Kernel: 0.536 ms, 3.2052 throughput
+Mma-CBT-Kernel: 0.5735 ms, 2.99562 throughput
+Mma-ST-Kernel: 0.6566 ms, 2.61649 throughput
+Mma-ST-Kernel-large: 0.6138 ms, 5.03444 throughput
+Mma-OBT-Kernel: 0.4626 ms, 3.71376 throughput
+Mma-OBT-large-Kernel: 0.4624 ms, 3.71537 throughput
+Mma-OBT-Kernel-tiled: 1.0681 ms, 1.60845 throughput
+Mma-OBTS-Kernel: 0.6068 ms, 2.83122 throughput
+Mma-OBTS-Kernel-large: 0.3972 ms, 4.32522 throughput
+Mma-OBTS-large-separate: 0.2903 ms, 5.91794 throughput
+
+
+Results for matrix: mat_20d_0s_1024x1024_sm.mtx
+----------------------------------------
+Mma-T-Kernel: 0.6783 ms, 2.53278 throughput
+Mma-BT-Kernel: 0.5339 ms, 3.2178 throughput
+Mma-CBT-Kernel: 0.5719 ms, 3.004 throughput
+Mma-ST-Kernel: 0.6663 ms, 2.5784 throughput
+Mma-ST-Kernel-large: 0.8635 ms, 3.57943 throughput
+Mma-OBT-Kernel: 0.4611 ms, 3.72584 throughput
+Mma-OBT-large-Kernel: 0.4615 ms, 3.72261 throughput
+Mma-OBT-Kernel-tiled: 1.0712 ms, 1.6038 throughput
+Mma-OBTS-Kernel: 0.4914 ms, 3.4961 throughput
+Mma-OBTS-Kernel-large: 0.5912 ms, 2.90592 throughput
+Mma-OBTS-large-separate: 0.5366 ms, 3.2016 throughput

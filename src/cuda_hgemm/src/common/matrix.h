@@ -246,46 +246,209 @@ public:
   }
 
   ~SparseMatrix() {
+    // --- host pointers (free/delete in opposite order of alloc) ---
     if (m_host_ptr) {
       delete[] m_host_ptr;
       m_host_ptr = nullptr;
     }
+    if (csrVal_host) {
+      free(csrVal_host);
+      csrVal_host = nullptr;
+    }
+    if (csrColIdx_host) {
+      free(csrColIdx_host);
+      csrColIdx_host = nullptr;
+    }
+    if (csrRowPtr_host) {
+      free(csrRowPtr_host);
+      csrRowPtr_host = nullptr;
+    }
 
-    if (m_dev_ptr) {
-      HGEMM_CHECK_CUDART_ERROR(cudaFree((void *)m_dev_ptr));
-      m_dev_ptr = nullptr;
+    if (bcsrVal_host) {
+      free(bcsrVal_host);
+      bcsrVal_host = nullptr;
+    }
+    if (bcsrColIdx_host) {
+      free(bcsrColIdx_host);
+      bcsrColIdx_host = nullptr;
+    }
+    if (bcsrRowPtr_host) {
+      free(bcsrRowPtr_host);
+      bcsrRowPtr_host = nullptr;
+    }
+
+    if (blockInfo_host) {
+      free(blockInfo_host);
+      blockInfo_host = nullptr;
+    }
+    if (relativeBlockIndexMapping_host) {
+      free(relativeBlockIndexMapping_host);
+      relativeBlockIndexMapping_host = nullptr;
+    }
+
+    if (sparseBcsrVal_host) {
+      free(sparseBcsrVal_host);
+      sparseBcsrVal_host = nullptr;
+    }
+    if (sparseBcsrColIdx_host) {
+      free(sparseBcsrColIdx_host);
+      sparseBcsrColIdx_host = nullptr;
+    }
+    if (sparseBcsrRowPtr_host) {
+      free(sparseBcsrRowPtr_host);
+      sparseBcsrRowPtr_host = nullptr;
+    }
+
+    if (denseBcsrVal_host) {
+      free(denseBcsrVal_host);
+      denseBcsrVal_host = nullptr;
+    }
+    if (denseBcsrColIdx_host) {
+      free(denseBcsrColIdx_host);
+      denseBcsrColIdx_host = nullptr;
+    }
+    if (denseBcsrRowPtr_host) {
+      free(denseBcsrRowPtr_host);
+      denseBcsrRowPtr_host = nullptr;
+    }
+
+    if (sparseBlockInfo_host) {
+      free(sparseBlockInfo_host);
+      sparseBlockInfo_host = nullptr;
+    }
+    if (sparseRelativeBlockIndexMapping_host) {
+      free(sparseRelativeBlockIndexMapping_host);
+      sparseRelativeBlockIndexMapping_host = nullptr;
+    }
+
+    if (mergedBcsrVal_host) {
+      free(mergedBcsrVal_host);
+      mergedBcsrVal_host = nullptr;
+    }
+    if (mergedBcsrColIdx_host) {
+      free(mergedBcsrColIdx_host);
+      mergedBcsrColIdx_host = nullptr;
+    }
+    if (mergedBcsrRowPtr_host) {
+      free(mergedBcsrRowPtr_host);
+      mergedBcsrRowPtr_host = nullptr;
     }
 
     if (mergedBlockInfo_host) {
       free(mergedBlockInfo_host);
       mergedBlockInfo_host = nullptr;
     }
-
+    if (mergedRelativeBlockIndexMapping_host) {
+      free(mergedRelativeBlockIndexMapping_host);
+      mergedRelativeBlockIndexMapping_host = nullptr;
+    }
     if (mergedTileInfo_host) {
       free(mergedTileInfo_host);
       mergedTileInfo_host = nullptr;
     }
 
-    if (mergedRelativeBlockIndexMapping_host) {
-      free(mergedRelativeBlockIndexMapping_host);
-      mergedRelativeBlockIndexMapping_host = nullptr;
+    // --- device pointers (cudaFree everything you cudaMalloc’d) ---
+    if (m_dev_ptr) {
+      cudaFree(m_dev_ptr);
+      m_dev_ptr = nullptr;
     }
 
-    if (mergedTileInfo_dev) {
-      HGEMM_CHECK_CUDART_ERROR(cudaFree(mergedTileInfo_dev));
-      mergedTileInfo_dev = nullptr;
+    if (csrVal_dev) {
+      cudaFree(csrVal_dev);
+      csrVal_dev = nullptr;
     }
+    if (csrColIdx_dev) {
+      cudaFree(csrColIdx_dev);
+      csrColIdx_dev = nullptr;
+    }
+    if (csrRowPtr_dev) {
+      cudaFree(csrRowPtr_dev);
+      csrRowPtr_dev = nullptr;
+    }
+
+    if (bcsrVal_dev) {
+      cudaFree(bcsrVal_dev);
+      bcsrVal_dev = nullptr;
+    }
+    if (bcsrColIdx_dev) {
+      cudaFree(bcsrColIdx_dev);
+      bcsrColIdx_dev = nullptr;
+    }
+    if (bcsrRowPtr_dev) {
+      cudaFree(bcsrRowPtr_dev);
+      bcsrRowPtr_dev = nullptr;
+    }
+
+    if (blockInfo_dev) {
+      cudaFree(blockInfo_dev);
+      blockInfo_dev = nullptr;
+    }
+    if (relativeBlockIndexMapping_dev) {
+      cudaFree(relativeBlockIndexMapping_dev);
+      relativeBlockIndexMapping_dev = nullptr;
+    }
+
+    if (sparseBcsrVal_dev) {
+      cudaFree(sparseBcsrVal_dev);
+      sparseBcsrVal_dev = nullptr;
+    }
+    if (sparseBcsrColIdx_dev) {
+      cudaFree(sparseBcsrColIdx_dev);
+      sparseBcsrColIdx_dev = nullptr;
+    }
+    if (sparseBcsrRowPtr_dev) {
+      cudaFree(sparseBcsrRowPtr_dev);
+      sparseBcsrRowPtr_dev = nullptr;
+    }
+
+    if (denseBcsrVal_dev) {
+      cudaFree(denseBcsrVal_dev);
+      denseBcsrVal_dev = nullptr;
+    }
+    if (denseBcsrColIdx_dev) {
+      cudaFree(denseBcsrColIdx_dev);
+      denseBcsrColIdx_dev = nullptr;
+    }
+    if (denseBcsrRowPtr_dev) {
+      cudaFree(denseBcsrRowPtr_dev);
+      denseBcsrRowPtr_dev = nullptr;
+    }
+
+    if (sparseBlockInfo_dev) {
+      cudaFree(sparseBlockInfo_dev);
+      sparseBlockInfo_dev = nullptr;
+    }
+    if (sparseRelativeBlockIndexMapping_dev) {
+      cudaFree(sparseRelativeBlockIndexMapping_dev);
+      sparseRelativeBlockIndexMapping_dev = nullptr;
+    }
+
+    if (mergedBcsrVal_dev) {
+      cudaFree(mergedBcsrVal_dev);
+      mergedBcsrVal_dev = nullptr;
+    }
+    if (mergedBcsrColIdx_dev) {
+      cudaFree(mergedBcsrColIdx_dev);
+      mergedBcsrColIdx_dev = nullptr;
+    }
+    if (mergedBcsrRowPtr_dev) {
+      cudaFree(mergedBcsrRowPtr_dev);
+      mergedBcsrRowPtr_dev = nullptr;
+    }
+
     if (mergedBlockInfo_dev) {
-      HGEMM_CHECK_CUDART_ERROR(cudaFree(mergedBlockInfo_dev));
+      cudaFree(mergedBlockInfo_dev);
       mergedBlockInfo_dev = nullptr;
     }
-
     if (mergedRelativeBlockIndexMapping_dev) {
-      HGEMM_CHECK_CUDART_ERROR(cudaFree(mergedRelativeBlockIndexMapping_dev));
+      cudaFree(mergedRelativeBlockIndexMapping_dev);
       mergedRelativeBlockIndexMapping_dev = nullptr;
     }
+    if (mergedTileInfo_dev) {
+      cudaFree(mergedTileInfo_dev);
+      mergedTileInfo_dev = nullptr;
+    }
   }
-
   size_t getRow() { return m_row; }
 
   size_t getCol() { return m_col; }

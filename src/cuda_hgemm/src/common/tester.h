@@ -736,15 +736,23 @@ private:
 
     // m_profiling_time = static_cast<double>(m_cuda_timer.end()) /
     // static_cast<double>(m_profiling_iterations);
-    m_throughput = static_cast<double>(m_A_sparse->getNonzeroblocks() * MMA_M *
-                                       MMA_K * 2) *
-                   1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    const double nnzBlocks =
+        static_cast<double>(m_A_sparse->getNonzeroblocks());
+    const double flops_dense_equiv =
+        2.0 * nnzBlocks * MMA_M * 16 *
+        static_cast<double>(this->m_N); // 2·16·32·N
+                                        // = 1024·N per block
+
+    m_throughput = flops_dense_equiv * 1e-12    // FLOPs → TeraFLOPs
+                   / (m_profiling_time * 1e-3); // ms      → seconds
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {
       m_base_time = m_profiling_time;
       m_base_throughput = m_throughput;
     }
+
+    std::cout << "NONZERO " << m_A_sparse->getNonzeroblocks() << std::endl;
 
     FILE *fout;
     fout = fopen("results_smat.csv", "a");
@@ -785,9 +793,15 @@ private:
     m_profiling_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 +
                         (t2.tv_usec - t1.tv_usec) / 1000.0) /
                        static_cast<double>(m_profiling_iterations);
-    m_throughput = static_cast<double>(m_A_sparse->getNonzeroblocks() * MMA_M *
-                                       MMA_K * 2) *
-                   1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    const double nnzBlocks =
+        static_cast<double>(m_A_sparse->getNonzeroblocks());
+    const double flops_dense_equiv =
+        2.0 * nnzBlocks * MMA_M * 16 *
+        static_cast<double>(this->m_N); // 2·16·32·N
+                                        // = 1024·N per block
+
+    m_throughput = flops_dense_equiv * 1e-12    // FLOPs → TeraFLOPs
+                   / (m_profiling_time * 1e-3); // ms      → seconds
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {
@@ -834,9 +848,15 @@ private:
     m_profiling_time = ((t2.tv_sec - t1.tv_sec) * 1000.0 +
                         (t2.tv_usec - t1.tv_usec) / 1000.0) /
                        static_cast<double>(m_profiling_iterations);
-    m_throughput = static_cast<double>(m_A_sparse->getNonzeroblocks() * MMA_M *
-                                       MMA_K * 2) *
-                   1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    const double nnzBlocks =
+        static_cast<double>(m_A_sparse->getNonzeroblocks());
+    const double flops_dense_equiv =
+        2.0 * nnzBlocks * MMA_M * 16 *
+        static_cast<double>(this->m_N); // 2·16·32·N
+                                        // = 1024·N per block
+
+    m_throughput = flops_dense_equiv * 1e-12    // FLOPs → TeraFLOPs
+                   / (m_profiling_time * 1e-3); // ms      → seconds
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {
@@ -894,9 +914,14 @@ private:
     if (large) {
       k = 32;
     }
-    m_throughput =
-        static_cast<double>(A_matrix->getNonzeroblocks() * MMA_M * k * 2) *
-        1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    const double nnzBlocks = static_cast<double>(A_matrix->getNonzeroblocks());
+    const double flops_dense_equiv =
+        2.0 * nnzBlocks * MMA_M * k *
+        static_cast<double>(this->m_N); // 2·16·32·N
+                                        // = 1024·N per block
+
+    m_throughput = flops_dense_equiv * 1e-12    // FLOPs → TeraFLOPs
+                   / (m_profiling_time * 1e-3); // ms      → seconds
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {
@@ -949,15 +974,23 @@ private:
                         (t2.tv_usec - t1.tv_usec) / 1000.0) /
                        static_cast<double>(m_profiling_iterations);
 
+    std::cout << "NONZERO " << A_matrix->getNonzeroblocks() << std::endl;
+    std::cout << "K " << large << std::endl;
+
     // m_profiling_time = static_cast<double>(m_cuda_timer.end()) /
     // static_cast<double>(m_profiling_iterations);
     int k = 16;
     if (large) {
       k = 32;
     }
-    m_throughput =
-        static_cast<double>(A_matrix->getNonzeroblocks() * MMA_M * k * 2) *
-        1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    const double nnzBlocks = static_cast<double>(A_matrix->getNonzeroblocks());
+    const double flops_dense_equiv =
+        2.0 * nnzBlocks * MMA_M * k *
+        static_cast<double>(this->m_N); // 2·16·32·N
+                                        // = 1024·N per block
+
+    m_throughput = flops_dense_equiv * 1e-12    // FLOPs → TeraFLOPs
+                   / (m_profiling_time * 1e-3); // ms      → seconds
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {
@@ -1017,9 +1050,14 @@ private:
     if (large) {
       k = 32;
     }
-    m_throughput =
-        static_cast<double>(A_matrix->getNonzeroblocks() * MMA_M * k * 2) *
-        1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    const double nnzBlocks = static_cast<double>(A_matrix->getNonzeroblocks());
+    const double flops_dense_equiv =
+        2.0 * nnzBlocks * MMA_M * k *
+        static_cast<double>(this->m_N); // 2·16·32·N
+                                        // = 1024·N per block
+
+    m_throughput = flops_dense_equiv * 1e-12    // FLOPs → TeraFLOPs
+                   / (m_profiling_time * 1e-3); // ms      → seconds
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {
@@ -1072,8 +1110,14 @@ private:
     if (large) {
       k = 32;
     }
-    m_throughput = static_cast<double>(A->getNonzeroblocks() * MMA_M * k * 2) *
-                   1e-12 / (static_cast<double>(m_profiling_time) * 1e-3);
+    const double nnzBlocks = static_cast<double>(A->getNonzeroblocks());
+    const double flops_dense_equiv =
+        2.0 * nnzBlocks * MMA_M * k *
+        static_cast<double>(this->m_N); // 2·16·32·N
+                                        // = 1024·N per block
+
+    m_throughput = flops_dense_equiv * 1e-12    // FLOPs → TeraFLOPs
+                   / (m_profiling_time * 1e-3); // ms      → seconds
 
     if ((std::abs(m_base_time) <= 1e-6) &&
         (std::abs(m_base_throughput) <= 1e-6)) {

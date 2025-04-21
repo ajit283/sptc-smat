@@ -59,11 +59,6 @@ __global__ void mmaOBTSKernelSparse_24sparse(
 
       size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
 
-      size_t A_size = MMA_M * MMA_K * sizeof(half);
-      size_t B_size = MMA_N * MMA_K * sizeof(half);
-
-      int sparsityInfo = blockInfo[blockIndex];
-
       cuda::memcpy_async(
           ((int4 *)(&A_smem[stage][lane_id / 2][0]) + lane_id % 2),
           (((int4 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 16) +
