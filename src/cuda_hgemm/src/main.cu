@@ -64,6 +64,10 @@ void preprocessing_mmaSTKernel_large(half *bcsrValuesA, char *metadata,
                                      size_t K, size_t nonzeroBlocks,
                                      int *blockInfo,
                                      int *relativeBlockIndexMapping);
+void preprocessing_mmaOBTSKernel_large_separate(
+    half *bcsrValuesA, char *metadata, half *sparseMatrixA, size_t M, size_t N,
+    size_t K, size_t nonzeroBlocks, int *blockInfo,
+    int *relativeBlockIndexMapping);
 void preprocessing_mmaOBTSKernel_tiled_large(
     half *bcsrValuesA, char *metadata, half *sparseMatrixA, size_t M, size_t N,
     size_t K, size_t nonzeroBlocks, int *blockInfo,
@@ -111,8 +115,10 @@ DEFINE_uint32(n_mult, 2, "n_mult * MMA_N = N");
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_2048_0.1000.mtx",
 //               "input .mtx file");
-DEFINE_string(filename, "../sparse-gemm/build/mat_1d_1s_1024x1024_lg.mtx",
+DEFINE_string(filename, "../sparse-gemm/build/mat_5d_5s_1024x1024_lg.mtx",
               "input .mtx file");
+// DEFINE_string(filename, "../sparse-gemm/build/mat_1d_1s_1024x1024_lg.mtx",
+//               "input .mtx file");
 // DEFINE_string(filename,
 // "../sparse-gemm/build/mat_50d_50s_128x128_sm.mtx",
 //               "input .mtx file");
@@ -491,13 +497,13 @@ int main(int argc, char *argv[]) {
 
   // auto result_mmaOBTS = tester.evaluateSparse24_2(
   //     mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
-  auto result_mmaOBTS_large = tester.evaluateSparse24_2(
-      mmaOBTSKernel_large, preprocessing_mmaSTKernel_large,
-      "Mma-OBTS-Kernel-large", true);
   auto result_mmaOBTS_large_separate = tester.evaluateSplit(
       mmaOBTSKernel_large_separate,    //  the host stub with dense+sparse
       preprocessing_mmaSTKernel_large, //  your 2:4 metadata packer
       "Mma-OBTS-large-separate", true);
+  auto result_mmaOBTS_large = tester.evaluateSparse24_2(
+      mmaOBTSKernel_large, preprocessing_mmaSTKernel_large,
+      "Mma-OBTS-Kernel-large", true);
 
   std::cout << "\nResults:\n";
   // std::cout << "Mma-T-Kernel: " << result_mmaT.first << " ms, "
