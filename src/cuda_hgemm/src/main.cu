@@ -2,6 +2,9 @@
 #include "omp.h"
 #include "tester.h"
 
+#include <iomanip>
+#include <utility>
+#include <vector>
 #define BLOCK 4
 
 #define HGEMM_FUNC(name)                                                       \
@@ -470,75 +473,138 @@ int main(int argc, char *argv[]) {
        FLAGS_enable_wmma, FLAGS_enable_mma, FLAGS_warmup_iterations,
        FLAGS_profiling_iterations, FLAGS_sleep_duration, FLAGS_enable_check);
 
-  std::string file(FLAGS_filename);
-  HLOG("Input .mtx: %s", file.data());
-  Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
-                FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                FLAGS_enable_check, FLAGS_n_mult, file.data(), true);
+  std::vector<std::pair<std::string, std::string>> filenames = {
+      {"../sparse-gemm/build/mat_5d_5s_1024x1024_lg.mtx",
+       "../sparse-gemm/build/mat_5d_5s_1024x1024_lg.mtx"},
+  };
 
-  // auto result_mmaT = tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
-  // auto result_cublas = tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+  std::vector<std::tuple<std::string,
+                         std::vector<std::tuple<std::string, float, float>>>>
+      all_results;
 
-  // auto result_mmaST = tester.evaluateSparse24(
-  //     mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
-  // auto result_mmaST_large = tester.evaluateSparse24(
-  //     mmaSTKernel_large, preprocessing_mmaSTKernel_large,
-  //     "Mma-ST-Kernel-large", true);
+  for (auto &filename : filenames) {
 
-  // auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-  // auto result_mmaCBT = tester.evaluateSparse2(mmaCBTKernel,
-  // "Mma-CBT-Kernel"); auto result_mmaOBT =
-  // tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel"); auto
-  // result_mmaOBT_large =
-  //     tester.evaluateSparse2(mmaOBTKernel_large, "Mma-OBT-large-Kernel");
-  // auto result_mmaOBT_tiled =
-  //     tester.evaluateSparse2_tiled(mmaOBTKernel_tiled,
-  //     "Mma-OBT-Kernel-tiled");
+    std::string file = filename.first;
+    std::string file_large = filename.second;
 
-  // auto result_mmaOBTS = tester.evaluateSparse24_2(
-  //     mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
-  auto result_mmaOBTS_large_separate = tester.evaluateSplit(
-      mmaOBTSKernel_large_separate,    //  the host stub with dense+sparse
-      preprocessing_mmaSTKernel_large, //  your 2:4 metadata packer
-      "Mma-OBTS-large-separate", true);
-  auto result_mmaOBTS_large = tester.evaluateSparse24_2(
-      mmaOBTSKernel_large, preprocessing_mmaSTKernel_large,
-      "Mma-OBTS-Kernel-large", true);
+    std::string matrix_name = file.substr(file.find_last_of("/") + 1);
 
-  std::cout << "\nResults:\n";
-  // std::cout << "Mma-T-Kernel: " << result_mmaT.first << " ms, "
-  //           << result_mmaT.second << " throughput\n";
-  // std::cout << "Cublas-Tensor-Op: " << result_cublas.first << " ms, "
-  //           << result_cublas.second << " throughput\n";
-  // std::cout << "Mma-ST-Kernel: " << result_mmaST.first << " ms, "
-  //           << result_mmaST.second << " throughput\n";
-  // std::cout << "Mma-ST-Kernel-large: " << result_mmaST_large.first << " ms, "
-  //           << result_mmaST_large.second << " throughput\n";
-  // std::cout << "Mma-BT-Kernel: " << result_mmaBT.first << " ms, "
-  //           << result_mmaBT.second << " throughput\n";
-  // std::cout << "Mma-CBT-Kernel: " << result_mmaCBT.first << " ms, "
-  //           << result_mmaCBT.second << " throughput\n";
-  // std::cout << "Mma-OBT-Kernel: " << result_mmaOBT.first << " ms, "
-  //           << result_mmaOBT.second << " throughput\n";
-  // std::cout << "Mma-OBT-large-Kernel: " << result_mmaOBT_large.first << "ms,"
-  //           << result_mmaOBT_large.second << " throughput\n";
-  // std::cout << "Mma-OBT-Kernel-tiled: " << result_mmaOBT_tiled.first << "ms,"
-  //           << result_mmaOBT_tiled.second << " throughput\n";
-  // std::cout << "Mma-OBTS-Kernel: " << result_mmaOBTS.first << " ms, "
-  //           << result_mmaOBTS.second << " throughput\n";
-  std::cout << "Mma-OBTS-Kernel-large: " << result_mmaOBTS_large.first
-            << " ms, " << result_mmaOBTS_large.second << " throughput\n";
-  std::cout << "Mma-OBTS-Kernel-large-separate: "
-            << result_mmaOBTS_large_separate.first << " ms, "
-            << result_mmaOBTS_large_separate.second << " throughput\n";
-  // tester.evaluateSparse24_2_tiled(mmaOBTSKernel_tiled_large,
-  //                                 preprocessing_mmaOBTSKernel_tiled_large,
-  //                                 "Mma-OBTS-Kernel-tiled-large", true);
-  // still need to work on this
+    HLOG("Input .mtx: %s", file.data());
+    Tester tester(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
+                  FLAGS_profiling_iterations, FLAGS_sleep_duration,
+                  FLAGS_enable_check, FLAGS_n_mult, file, true);
+    Tester tester_large(FLAGS_M, FLAGS_N, FLAGS_K, FLAGS_warmup_iterations,
+                        FLAGS_profiling_iterations, FLAGS_sleep_duration,
+                        FLAGS_enable_check, FLAGS_n_mult, file_large, true);
 
+    // Create a vector for this matrix's results
+    std::vector<std::tuple<std::string, float, float>> matrix_results;
+
+    // Store results in variables to avoid running each kernel twice
+    auto result_mmaT = tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+    auto result_cublas = tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
+    auto result_mmaST = tester.evaluateSparse24(
+        mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
+    auto result_mmaST_large = tester.evaluateSparse24(
+        mmaSTKernel_large, preprocessing_mmaSTKernel_large,
+        "Mma-ST-Kernel-large", true);
+    auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
+    auto result_mmaCBT = tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
+    auto result_mmaOBT = tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
+    auto result_mmaOBT_large =
+        tester.evaluateSparse2(mmaOBTKernel_large, "Mma-OBT-large-Kernel");
+    auto result_mmaOBT_tiled = tester.evaluateSparse2_tiled(
+        mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+    auto result_mmaOBTS = tester.evaluateSparse24_2(
+        mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
+    auto result_mmaOBTS_large = tester.evaluateSparse24_2(
+        mmaOBTSKernel_large, preprocessing_mmaSTKernel_large,
+        "Mma-OBTS-Kernel-large", true);
+    auto result_mmaOBTS_large_separate = tester.evaluateSplit(
+        mmaOBTSKernel_large_separate, preprocessing_mmaSTKernel_large,
+        "Mma-OBTS-large-separate", true);
+
+    // Add each result to the current matrix's results vector
+    matrix_results.push_back(
+        std::make_tuple("Mma-T-Kernel", result_mmaT.first, result_mmaT.second));
+    matrix_results.push_back(std::make_tuple(
+        "Cublas-Tensor-Op", result_cublas.first, result_cublas.second));
+    matrix_results.push_back(std::make_tuple(
+        "Mma-ST-Kernel", result_mmaST.first, result_mmaST.second));
+    matrix_results.push_back(std::make_tuple("Mma-ST-Kernel-large",
+                                             result_mmaST_large.first,
+                                             result_mmaST_large.second));
+    matrix_results.push_back(std::make_tuple(
+        "Mma-BT-Kernel", result_mmaBT.first, result_mmaBT.second));
+    matrix_results.push_back(std::make_tuple(
+        "Mma-CBT-Kernel", result_mmaCBT.first, result_mmaCBT.second));
+    matrix_results.push_back(std::make_tuple(
+        "Mma-OBT-Kernel", result_mmaOBT.first, result_mmaOBT.second));
+    matrix_results.push_back(std::make_tuple("Mma-OBT-large-Kernel",
+                                             result_mmaOBT_large.first,
+                                             result_mmaOBT_large.second));
+    matrix_results.push_back(std::make_tuple("Mma-OBT-Kernel-tiled",
+                                             result_mmaOBT_tiled.first,
+                                             result_mmaOBT_tiled.second));
+    matrix_results.push_back(std::make_tuple(
+        "Mma-OBTS-Kernel", result_mmaOBTS.first, result_mmaOBTS.second));
+    matrix_results.push_back(std::make_tuple("Mma-OBTS-Kernel-large",
+                                             result_mmaOBTS_large.first,
+                                             result_mmaOBTS_large.second));
+    matrix_results.push_back(std::make_tuple(
+        "Mma-OBTS-large-separate", result_mmaOBTS_large_separate.first,
+        result_mmaOBTS_large_separate.second));
+
+    // Add this matrix's name and results to the all_results vector
+    all_results.push_back(std::make_tuple(matrix_name, matrix_results));
+  }
+
+  // Print results for each matrix
+  for (const auto &matrix_entry : all_results) {
+    std::string matrix_name = std::get<0>(matrix_entry);
+    const auto &matrix_results = std::get<1>(matrix_entry);
+
+    std::cout << "\nResults for matrix: " << matrix_name << "\n";
+    std::cout << std::string(40, '-') << "\n";
+
+    for (const auto &result : matrix_results) {
+      std::cout << std::get<0>(result) << ": " << std::get<1>(result) << " ms, "
+                << std::get<2>(result) << " throughput\n";
+    }
+    std::cout << "\n";
+  }
+
+  // Optional: Print comparative summary table
+  std::cout << "\nComparative Summary\n";
+  std::cout << std::string(80, '=') << "\n";
+  std::cout << std::left << std::setw(25) << "Kernel";
+
+  // Print matrix names as headers
+  for (const auto &matrix_entry : all_results) {
+    std::cout << std::left << std::setw(25) << std::get<0>(matrix_entry);
+  }
+  std::cout << "\n" << std::string(80, '-') << "\n";
+
+  // Get the first matrix's results to know which kernels to iterate through
+  if (!all_results.empty()) {
+    const auto &first_matrix_results = std::get<1>(all_results[0]);
+
+    // For each kernel type
+    for (size_t i = 0; i < first_matrix_results.size(); i++) {
+      std::cout << std::left << std::setw(25)
+                << std::get<0>(first_matrix_results[i]);
+
+      // Print each matrix's result for this kernel
+      for (const auto &matrix_entry : all_results) {
+        const auto &matrix_results = std::get<1>(matrix_entry);
+        const auto &kernel_result = matrix_results[i];
+        std::cout << std::left << std::setw(25)
+                  << (std::to_string(std::get<1>(kernel_result)) + " ms");
+      }
+      std::cout << "\n";
+    }
+  }
   GFLAGS_NAMESPACE::ShutDownCommandLineFlags();
-
   HLOG("Done");
-
   return 0;
 }
