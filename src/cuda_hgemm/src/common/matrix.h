@@ -198,7 +198,7 @@ public:
                                         cudaMemcpyHostToDevice));
 
     csrToBcsr();
-    bcsrBlocking();
+    // bcsrBlocking();
     filterBcsrBlocks();
     // csrToBcsrKnapsacking();
     HLOG("Finished creating BCSR from CSR");

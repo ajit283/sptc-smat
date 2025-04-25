@@ -1,0 +1,13 @@
+Results for matrix: cop20k_A.mtx
+----------------------------------------
+Mma-T-Kernel: 98.5906 ms, 0.279847 throughput
+Mma-BT-Kernel: 7.6483 ms, 3.60737 throughput
+Mma-CBT-Kernel: 7.9753 ms, 3.45946 throughput
+Mma-ST-Kernel: 100.367 ms, 0.274893 throughput
+Mma-ST-Kernel-large: 62.4404 ms, 0.801127 throughput
+Mma-OBT-Kernel: 5.695 ms, 4.84465 throughput
+Mma-OBT-large-Kernel: 5.7028 ms, 4.83802 throughput
+Mma-OBTS-Kernel: 8.5325 ms, 3.23355 throughput
+
+Mma-OBTS-Kernel-large: 10.8112 ms, 4.62693 throughput
+Mma-OBTS-large-separate: 2.153 ms, 23.234 throughput

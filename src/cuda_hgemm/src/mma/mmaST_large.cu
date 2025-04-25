@@ -107,7 +107,7 @@ __global__ void preprocessing_mmaSTKernelSparse_large(
                   src[i + (4 * j) + part * 8];
               cur_meta[part] |= i << (6 - (2 * (1 - cur_src_sparse) + (4 * j)));
               if (cur_src_sparse > 1) {
-                printf("%d ", cur_src_sparse);
+                // printf("%d ", cur_src_sparse);
               }
               cur_src_sparse++;
             }

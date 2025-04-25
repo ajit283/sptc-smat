@@ -50,106 +50,113 @@ __global__ void mmaOBTSKernelSparse_24sparse(
 
   cuda::pipeline<cuda::thread_scope_thread> pipe = cuda::make_pipeline();
 
-  auto loadStages = [&] __device__(size_t stage_ptr, int stage) {
-    if (stage_ptr < end) {
+  //   auto loadStages = [&] __device__(size_t stage_ptr, int stage) {
+  //     if (stage_ptr < end) {
 
-      size_t i = bcsrColIdxA_sparse[stage_ptr] / MMA_K;
-      // skip empty block
-      size_t blockIndex = blockRow * colRegions + i;
+  //       size_t i = bcsrColIdxA_sparse[stage_ptr] / MMA_K;
+  //       // skip empty block
+  //       size_t blockIndex = blockRow * colRegions + i;
 
-      size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
+  //       size_t relativeIndex = relativeBlockIndexMapping[blockIndex];
 
-      cuda::memcpy_async(
-          ((int4 *)(&A_smem[stage][lane_id / 2][0]) + lane_id % 2),
-          (((int4 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 16) +
-           lane_id),
-          sizeof(int4), pipe);
-      cuda::memcpy_async(
-          ((half *)(Meta_smem_sparse[stage][lane_id / 2]) + (lane_id % 2)),
-          ((half *)metadata + (relativeIndex * MMA_M * (MMA_K / 16) + lane_id)),
-          sizeof(half), pipe);
+  //       cuda::memcpy_async(
+  //           ((int4 *)(&A_smem[stage][lane_id / 2][0]) + lane_id % 2),
+  //           (((int4 *)(sparseMatrixA)) + relativeIndex * MMA_M * (MMA_K / 16)
+  //           +
+  //            lane_id),
+  //           sizeof(int4), pipe);
+  //       cuda::memcpy_async(
+  //           ((half *)(Meta_smem_sparse[stage][lane_id / 2]) + (lane_id % 2)),
+  //           ((half *)metadata + (relativeIndex * MMA_M * (MMA_K / 16) +
+  //           lane_id)), sizeof(half), pipe);
 
-      cuda::memcpy_async(
-          ((int4 *)(&B_smem[stage][lane_id / 4][0]) + lane_id % 4),
-          ((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 4) * K]) +
-           lane_id % 4),
-          sizeof(int4), pipe);
-    }
-  };
+  //       cuda::memcpy_async(
+  //           ((int4 *)(&B_smem[stage][lane_id / 4][0]) + lane_id % 4),
+  //           ((int4 *)(&B[i * MMA_K + (warp_col + lane_id / 4) * K]) +
+  //            lane_id % 4),
+  //           sizeof(int4), pipe);
+  //     }
+  //   };
 
-  // Load all pipeline stages.
-  for (int stage = 0; stage < NUM_STAGES; ++stage) {
-    pipe.producer_acquire();
+  //   // Load all pipeline stages.
+  //   for (int stage = 0; stage < NUM_STAGES; ++stage) {
+  //     pipe.producer_acquire();
 
-    size_t ptr = bcsrRowPtrA_sparse[blockRow] + stage;
-    loadStages(ptr, stage);
+  //     size_t ptr = bcsrRowPtrA_sparse[blockRow] + stage;
+  //     loadStages(ptr, stage);
 
-    pipe.producer_commit();
-  }
+  //     pipe.producer_commit();
+  //   }
 
   uint32_t RC[2] = {0, 0};
 
   int stage = 0;
 
-#pragma unroll
-  for (size_t ptr = start; ptr < end; ptr++) {
-    // counter++;
-    // DEBUG_PRINT_THREAD(0, "counter: %d\n", counter);
-    // DEBUG_PRINT_THREAD(0, "bcsrColIdxA[ptr]: %d\n", bcsrColIdxA[ptr]);
+  // #pragma unroll
+  //   for (size_t ptr = start; ptr < end; ptr++) {
+  //     // counter++;
+  //     // DEBUG_PRINT_THREAD(0, "counter: %d\n", counter);
+  //     // DEBUG_PRINT_THREAD(0, "bcsrColIdxA[ptr]: %d\n", bcsrColIdxA[ptr]);
 
-    cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
+  //     cuda::pipeline_consumer_wait_prior<NUM_STAGES - 1>(pipe);
 
-    uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
-        &A_smem[stage][lane_id % 16][(lane_id / 16) * (MMA_K / 2 / 2)]);
-    LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
-                A_smem_lane_addr);
+  //     uint32_t A_smem_lane_addr = __cvta_generic_to_shared(
+  //         &A_smem[stage][lane_id % 16][(lane_id / 16) * (MMA_K / 2 / 2)]);
+  //     LDMATRIX_X4(RA[stage][0], RA[stage][1], RA[stage][2], RA[stage][3],
+  //                 A_smem_lane_addr);
 
-    uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
-        &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * (MMA_K / 2)]);
-    LDMATRIX_X4(RB[stage][0], RB[stage][1], RB[stage][2], RB[stage][3],
-                B_smem_lane_addr);
+  //     uint32_t B_smem_lane_addr = __cvta_generic_to_shared(
+  //         &B_smem[stage][lane_id % 8][((lane_id / 8) % 2) * (MMA_K / 2)]);
+  //     LDMATRIX_X4(RB[stage][0], RB[stage][1], RB[stage][2], RB[stage][3],
+  //                 B_smem_lane_addr);
 
-    char metadata_local[4];
+  //     char metadata_local[4];
 
-    metadata_local[0] =
-        (char)((Meta_smem_sparse[stage][lane_id / 4][0 + 2 * (lane_id % 2)]));
-    metadata_local[1] =
-        (char)((Meta_smem_sparse[stage][lane_id / 4][1 + 2 * (lane_id % 2)]));
-    metadata_local[2] = (char)((
-        Meta_smem_sparse[stage][(lane_id / 4) + 8][0 + 2 * (lane_id % 2)]));
-    metadata_local[3] = (char)((
-        Meta_smem_sparse[stage][(lane_id / 4) + 8][1 + 2 * (lane_id % 2)]));
+  //     metadata_local[0] =
+  //         (char)((Meta_smem_sparse[stage][lane_id / 4][0 + 2 * (lane_id %
+  //         2)]));
+  //     metadata_local[1] =
+  //         (char)((Meta_smem_sparse[stage][lane_id / 4][1 + 2 * (lane_id %
+  //         2)]));
+  //     metadata_local[2] = (char)((
+  //         Meta_smem_sparse[stage][(lane_id / 4) + 8][0 + 2 * (lane_id %
+  //         2)]));
+  //     metadata_local[3] = (char)((
+  //         Meta_smem_sparse[stage][(lane_id / 4) + 8][1 + 2 * (lane_id %
+  //         2)]));
 
-    uint32_t meta_value;
-    memcpy(&meta_value, metadata_local, sizeof(uint32_t));
+  //     uint32_t meta_value;
+  //     memcpy(&meta_value, metadata_local, sizeof(uint32_t));
 
-    // HMMA16816_SPARSE(RC[0], RC[1], RA[stage][0], RA[stage][1],
-    // RB[stage][0],
-    //                  RB[stage][1], RC[0], RC[1], meta_value, 0x0);
+  //     // HMMA16816_SPARSE(RC[0], RC[1], RA[stage][0], RA[stage][1],
+  //     // RB[stage][0],
+  //     //                  RB[stage][1], RC[0], RC[1], meta_value, 0x0);
 
-    HMMA16832_SPARSE(RC[0], RC[1], RA[stage][0], RA[stage][1], RA[stage][2],
-                     RA[stage][3], RB[stage][0], RB[stage][1], RB[stage][2],
-                     RB[stage][3], RC[0], RC[1], meta_value, 0x0);
+  //     HMMA16832_SPARSE(RC[0], RC[1], RA[stage][0], RA[stage][1],
+  //     RA[stage][2],
+  //                      RA[stage][3], RB[stage][0], RB[stage][1],
+  //                      RB[stage][2], RB[stage][3], RC[0], RC[1], meta_value,
+  //                      0x0);
 
-    // Release the consumed stage.
-    pipe.consumer_release();
+  //     // Release the consumed stage.
+  //     pipe.consumer_release();
 
-    // Pre-load data for `num_stages` into the future.
-    pipe.producer_acquire();
+  //     // Pre-load data for `num_stages` into the future.
+  //     pipe.producer_acquire();
 
-    size_t stage_ptr = ptr + NUM_STAGES;
+  //     size_t stage_ptr = ptr + NUM_STAGES;
 
-    loadStages(stage_ptr, stage);
+  //     loadStages(stage_ptr, stage);
 
-    pipe.producer_commit();
+  //     pipe.producer_commit();
 
-    stage = (stage + 1) % NUM_STAGES;
-  }
+  //     stage = (stage + 1) % NUM_STAGES;
+  //   }
 
   start = bcsrRowPtrA_dense[blockRow];
   end = bcsrRowPtrA_dense[blockRow + 1];
 
-  auto loadStages_sparse = [&] __device__(size_t stage_ptr, int stage) {
+  auto loadStages_dense = [&] __device__(size_t stage_ptr, int stage) {
     if (stage_ptr < end) {
 
       size_t i = bcsrColIdxA_dense[stage_ptr] / MMA_K;
@@ -184,7 +191,7 @@ __global__ void mmaOBTSKernelSparse_24sparse(
     pipe.producer_acquire();
 
     size_t ptr = bcsrRowPtrA_dense[blockRow] + stage;
-    loadStages_sparse(ptr, stage);
+    loadStages_dense(ptr, stage);
 
     pipe.producer_commit();
   }
@@ -234,7 +241,7 @@ __global__ void mmaOBTSKernelSparse_24sparse(
 
     size_t stage_ptr = ptr + NUM_STAGES;
 
-    loadStages_sparse(stage_ptr, stage);
+    loadStages_dense(stage_ptr, stage);
 
     pipe.producer_commit();
 

@@ -105,7 +105,7 @@ DEFINE_bool(enable_check, false,
             "check the GPU result against the cublas result");
 DEFINE_uint32(cpu_procs, omp_get_num_procs(), "processor num used of CPU");
 DEFINE_uint32(gpu_rank, 0, "the used GPU rank");
-DEFINE_uint32(n_mult, 2, "n_mult * MMA_N = N");
+DEFINE_uint32(n_mult, 16, "n_mult * MMA_N = N");
 // DEFINE_string(filename,
 //               "./src/matrices/2_4_sparse_matrices/"
 //               "2_4_sparse_mtx_1024_0.4000.mtx",
@@ -212,9 +212,9 @@ int main(int argc, char *argv[]) {
           // {{"../sparse-gemm/build/mat_0d_1s_1024x1024_sm.mtx",
           //   "../sparse-gemm/build/mat_0d_1s_1024x1024_lg.mtx"},
           //  {16384, FLAGS_n_mult * MMA_N, 16384}},
-          // {{"../sparse-gemm/build/mat_1d_0s_1024x1024_sm.mtx",
-          //   "../sparse-gemm/build/mat_1d_0s_1024x1024_lg.mtx"},
-          //  {16384, FLAGS_n_mult * MMA_N, 16384}},
+          {{"../sparse-gemm/build/mat_1d_0s_1024x1024_sm.mtx",
+            "../sparse-gemm/build/mat_1d_0s_1024x1024_lg.mtx"},
+           {16384, FLAGS_n_mult * MMA_N, 16384}},
           // {{"../sparse-gemm/build/mat_1d_1s_1024x1024_sm.mtx",
           //   "../sparse-gemm/build/mat_1d_1s_1024x1024_lg.mtx"},
           //  {16384, FLAGS_n_mult * MMA_N, 16384}},
@@ -237,13 +237,20 @@ int main(int argc, char *argv[]) {
           //   "../sparse-gemm/build/mat_0d_20s_1024x1024_lg.mtx"},
           //  {16384, FLAGS_n_mult * MMA_N, 16384}},
 
-          {{"../sparse-gemm/build/mat_20d_0s_1024x1024_sm.mtx",
-            "../sparse-gemm/build/mat_20d_0s_1024x1024_lg.mtx"},
-           {16384, FLAGS_n_mult * MMA_N, 16384}},
+          // {{"../sparse-gemm/build/mat_20d_0s_1024x1024_sm.mtx",
+          //   "../sparse-gemm/build/mat_20d_0s_1024x1024_lg.mtx"},
+          //  {16384, FLAGS_n_mult * MMA_N, 16384}},
           // {{"./src/matrices/2_4_sparse_matrices/2_4_sparse_mtx_2048_0.1000.mtx",
           //   "./src/matrices/2_4_sparse_matrices/"
           //   "2_4_sparse_mtx_2048_0.1000.mtx"},
-          //  {2048, 2048, 2048}},
+          //  {2048, FLAGS_n_mult * MMA_N, 2048}},
+          // {{"./src/matrices/suitesparse/mip1/mip1.mtx",
+          //   "./src/matrices/suitesparse/mip1/mip1.mtx"},
+          //  {66463, FLAGS_n_mult * MMA_N, 66463}}
+          {{"./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx",
+            "./src/matrices/suitesparse/cop20k_A/cop20k_A.mtx"},
+           {16384, FLAGS_n_mult * MMA_N, 16384}},
+
       };
 
   std::vector<std::tuple<std::string,
@@ -265,64 +272,69 @@ int main(int argc, char *argv[]) {
     Tester tester(std::get<0>(filename.second), std::get<1>(filename.second),
                   std::get<2>(filename.second), FLAGS_warmup_iterations,
                   FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                  FLAGS_enable_check, FLAGS_n_mult, file, true);
-    Tester tester_large(std::get<0>(filename.second),
-                        std::get<1>(filename.second),
-                        std::get<2>(filename.second), FLAGS_warmup_iterations,
-                        FLAGS_profiling_iterations, FLAGS_sleep_duration,
-                        FLAGS_enable_check, FLAGS_n_mult, file_large, true);
+                  FLAGS_enable_check, FLAGS_n_mult, file, false);
+    // Tester tester_large(std::get<0>(filename.second),
+    //                     std::get<1>(filename.second),
+    //                     std::get<2>(filename.second),
+    //                     FLAGS_warmup_iterations, FLAGS_profiling_iterations,
+    //                     FLAGS_sleep_duration, FLAGS_enable_check,
+    //                     FLAGS_n_mult, file_large, false);
 
     // Create a vector for this matrix's results
     std::vector<std::tuple<std::string, float, float>> matrix_results;
 
     // Store results in variables to avoid running each kernel twice
-    auto result_mmaT = tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
+    //     auto result_mmaT = tester.evaluateSparse(mmaTKernel, "Mma-T-Kernel");
     // auto result_cublas = tester.evaluate(cublasTensorOp, "Cublas-Tensor-Op");
-    auto result_mmaST = tester.evaluateSparse24(
-        mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
-    auto result_mmaST_large = tester.evaluateSparse24(
-        mmaSTKernel_large, preprocessing_mmaSTKernel_large,
-        "Mma-ST-Kernel-large", true);
-    auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel, "Mma-BT-Kernel");
-    auto result_mmaCBT = tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel");
-    auto result_mmaOBT = tester.evaluateSparse2(mmaOBTKernel, "Mma-OBT-Kernel");
-    auto result_mmaOBT_large =
-        tester.evaluateSparse2(mmaOBTKernel_large, "Mma-OBT-large-Kernel");
-    auto result_mmaOBT_tiled = tester.evaluateSparse2_tiled(
-        mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
-    auto result_mmaOBTS = tester.evaluateSparse24_2(
-        mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
-    auto result_mmaOBTS_large = tester_large.evaluateSparse24_2(
+    //     auto result_mmaST = tester.evaluateSparse24(
+    //         mmaSTKernel, preprocessing_mmaSTKernel, "Mma-ST-Kernel");
+    //     auto result_mmaST_large = tester.evaluateSparse24(
+    //         mmaSTKernel_large, preprocessing_mmaSTKernel_large,
+    //         "Mma-ST-Kernel-large", true);
+    //     auto result_mmaBT = tester.evaluateSparse2(mmaBTKernel,
+    //     "Mma-BT-Kernel"); auto result_mmaCBT =
+    //     tester.evaluateSparse2(mmaCBTKernel, "Mma-CBT-Kernel"); auto
+    //     result_mmaOBT = tester.evaluateSparse2(mmaOBTKernel,
+    //     "Mma-OBT-Kernel"); auto result_mmaOBT_large =
+    //         tester.evaluateSparse2(mmaOBTKernel_large,
+    //         "Mma-OBT-large-Kernel");
+    //     // auto result_mmaOBT_tiled = tester.evaluateSparse2_tiled(
+    //     //     mmaOBTKernel_tiled, "Mma-OBT-Kernel-tiled");
+    //     auto result_mmaOBTS = tester.evaluateSparse24_2(
+    //         mmaOBTSKernel, preprocessing_mmaSTKernel, "Mma-OBTS-Kernel");
+
+    auto result_mmaOBTS_large = tester.evaluateSparse24_2(
         mmaOBTSKernel_large, preprocessing_mmaSTKernel_large,
         "Mma-OBTS-Kernel-large", true);
-    auto result_mmaOBTS_large_separate = tester_large.evaluateSplit(
+    auto result_mmaOBTS_large_separate = tester.evaluateSplit(
         mmaOBTSKernel_large_separate, preprocessing_mmaSTKernel_large,
         "Mma-OBTS-large-separate", true);
 
     // Add each result to the current matrix's results vector
-    matrix_results.push_back(
-        std::make_tuple("Mma-T-Kernel", result_mmaT.first, result_mmaT.second));
+    //     matrix_results.push_back(
+    //         std::make_tuple("Mma-T-Kernel", result_mmaT.first,
+    //         result_mmaT.second));
     //     matrix_results.push_back(std::make_tuple(
     //         "Cublas-Tensor-Op", result_cublas.first, result_cublas.second));
-    matrix_results.push_back(std::make_tuple(
-        "Mma-BT-Kernel", result_mmaBT.first, result_mmaBT.second));
-    matrix_results.push_back(std::make_tuple(
-        "Mma-CBT-Kernel", result_mmaCBT.first, result_mmaCBT.second));
-    matrix_results.push_back(std::make_tuple(
-        "Mma-ST-Kernel", result_mmaST.first, result_mmaST.second));
-    matrix_results.push_back(std::make_tuple("Mma-ST-Kernel-large",
-                                             result_mmaST_large.first,
-                                             result_mmaST_large.second));
-    matrix_results.push_back(std::make_tuple(
-        "Mma-OBT-Kernel", result_mmaOBT.first, result_mmaOBT.second));
-    matrix_results.push_back(std::make_tuple("Mma-OBT-large-Kernel",
-                                             result_mmaOBT_large.first,
-                                             result_mmaOBT_large.second));
-    matrix_results.push_back(std::make_tuple("Mma-OBT-Kernel-tiled",
-                                             result_mmaOBT_tiled.first,
-                                             result_mmaOBT_tiled.second));
-    matrix_results.push_back(std::make_tuple(
-        "Mma-OBTS-Kernel", result_mmaOBTS.first, result_mmaOBTS.second));
+    //     matrix_results.push_back(std::make_tuple(
+    //         "Mma-BT-Kernel", result_mmaBT.first, result_mmaBT.second));
+    //     matrix_results.push_back(std::make_tuple(
+    //         "Mma-CBT-Kernel", result_mmaCBT.first, result_mmaCBT.second));
+    //     matrix_results.push_back(std::make_tuple(
+    //         "Mma-ST-Kernel", result_mmaST.first, result_mmaST.second));
+    //     matrix_results.push_back(std::make_tuple("Mma-ST-Kernel-large",
+    //                                              result_mmaST_large.first,
+    //                                              result_mmaST_large.second));
+    //     matrix_results.push_back(std::make_tuple(
+    //         "Mma-OBT-Kernel", result_mmaOBT.first, result_mmaOBT.second));
+    //     matrix_results.push_back(std::make_tuple("Mma-OBT-large-Kernel",
+    //                                              result_mmaOBT_large.first,
+    //                                              result_mmaOBT_large.second));
+    // matrix_results.push_back(std::make_tuple("Mma-OBT-Kernel-tiled",
+    //                                          result_mmaOBT_tiled.first,
+    //                                          result_mmaOBT_tiled.second));
+    //     matrix_results.push_back(std::make_tuple(
+    //         "Mma-OBTS-Kernel", result_mmaOBTS.first, result_mmaOBTS.second));
     matrix_results.push_back(std::make_tuple("Mma-OBTS-Kernel-large",
                                              result_mmaOBTS_large.first,
                                              result_mmaOBTS_large.second));
